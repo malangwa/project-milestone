@@ -1,9 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { projectsApi } from '../../api/projects.api';
-import { tasksApi } from '../../api/tasks.api';
-import { issuesApi } from '../../api/issues.api';
-import { milestonesApi } from '../../api/milestones.api';
+import { searchApi } from '../../api/search.api';
 
 type ResultItem = {
   id: string;
@@ -30,48 +27,34 @@ const SearchPage = () => {
   useEffect(() => { inputRef.current?.focus(); }, []);
 
   const runSearch = async () => {
-    const q = query.trim().toLowerCase();
-    if (!q) return;
+    const q = query.trim();
+    if (q.length < 2) return;
     setLoading(true);
     setSearched(true);
     try {
-      const [projRes] = await Promise.all([projectsApi.getAll()]);
-      const projects: any[] = projRes.data?.data || projRes.data || [];
-
-      const all: ResultItem[] = [];
-
-      projects.forEach((p: any) => {
-        if (p.name?.toLowerCase().includes(q) || p.description?.toLowerCase().includes(q)) {
-          all.push({ id: p.id, label: p.name, subtitle: p.status, type: 'project', href: `/projects/${p.id}` });
-        }
-      });
-
-      await Promise.all(
-        projects.map(async (p: any) => {
-          const [ms, ts, is_] = await Promise.all([
-            milestonesApi.getByProject(p.id).catch(() => ({ data: [] })),
-            tasksApi.getByProject(p.id).catch(() => ({ data: [] })),
-            issuesApi.getByProject(p.id).catch(() => ({ data: [] })),
-          ]);
-          (ms.data?.data || ms.data || []).forEach((m: any) => {
-            if (m.name?.toLowerCase().includes(q)) {
-              all.push({ id: m.id, label: m.name, subtitle: `Milestone · ${p.name}`, type: 'milestone', href: `/projects/${p.id}` });
-            }
-          });
-          (ts.data?.data || ts.data || []).forEach((t: any) => {
-            if (t.title?.toLowerCase().includes(q) || t.description?.toLowerCase().includes(q)) {
-              all.push({ id: t.id, label: t.title, subtitle: `Task · ${p.name} · ${t.status}`, type: 'task', href: `/tasks` });
-            }
-          });
-          (is_.data?.data || is_.data || []).forEach((i: any) => {
-            if (i.title?.toLowerCase().includes(q) || i.description?.toLowerCase().includes(q)) {
-              all.push({ id: i.id, label: i.title, subtitle: `Issue · ${p.name} · ${i.status}`, type: 'issue', href: `/issues` });
-            }
-          });
-        }),
-      );
-
+      const res = await searchApi.search(q);
+      const data = res.data?.data || res.data || {};
+      const all: ResultItem[] = [
+        ...(data.projects || []).map((p: any) => ({
+          id: p.id, label: p.title, subtitle: p.status ?? '',
+          type: 'project' as const, href: `/projects/${p.id}`,
+        })),
+        ...(data.milestones || []).map((m: any) => ({
+          id: m.id, label: m.title, subtitle: `Milestone · ${m.status ?? ''}`,
+          type: 'milestone' as const, href: `/projects/${m.projectId}`,
+        })),
+        ...(data.tasks || []).map((t: any) => ({
+          id: t.id, label: t.title, subtitle: `Task · ${t.status ?? ''}`,
+          type: 'task' as const, href: `/tasks`,
+        })),
+        ...(data.issues || []).map((i: any) => ({
+          id: i.id, label: i.title, subtitle: `Issue · ${i.status ?? ''}`,
+          type: 'issue' as const, href: `/issues`,
+        })),
+      ];
       setResults(all);
+    } catch {
+      setResults([]);
     } finally {
       setLoading(false);
     }
