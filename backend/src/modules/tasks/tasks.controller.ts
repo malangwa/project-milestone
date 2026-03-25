@@ -1,7 +1,9 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { TasksService } from './tasks.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { User } from '../users/entities/user.entity';
 
 @ApiTags('tasks')
 @ApiBearerAuth()
@@ -9,4 +11,36 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 @Controller('tasks')
 export class TasksController {
   constructor(private readonly tasksService: TasksService) {}
+
+  @Post()
+  @ApiOperation({ summary: 'Create a task' })
+  create(@Body() body: any, @CurrentUser() user: User) {
+    return this.tasksService.create({ ...body, createdById: user.id });
+  }
+
+  @Get('project/:projectId')
+  findByProject(@Param('projectId') projectId: string) {
+    return this.tasksService.findByProject(projectId);
+  }
+
+  @Get('milestone/:milestoneId')
+  findByMilestone(@Param('milestoneId') milestoneId: string) {
+    return this.tasksService.findByMilestone(milestoneId);
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.tasksService.findOne(id);
+  }
+
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() body: any) {
+    return this.tasksService.update(id, body);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  remove(@Param('id') id: string) {
+    return this.tasksService.remove(id);
+  }
 }
