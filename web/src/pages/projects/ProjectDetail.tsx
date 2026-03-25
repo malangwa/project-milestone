@@ -36,6 +36,9 @@ const ProjectDetail = () => {
   const [showEdit, setShowEdit] = useState(false);
   const [editForm, setEditForm] = useState({ name: '', description: '', status: '', industry: '', budget: '', startDate: '', endDate: '' });
   const [editSaving, setEditSaving] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
+  const [createForm, setCreateForm] = useState<Record<string, string>>({});
+  const [createSaving, setCreateSaving] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -129,6 +132,38 @@ const ProjectDetail = () => {
     } catch {} finally { setEditSaving(false); }
   };
 
+  const CREATE_DEFAULTS: Record<string, Record<string, string>> = {
+    tasks: { title: '', description: '', priority: 'medium', status: 'todo', dueDate: '' },
+    milestones: { name: '', description: '', status: 'pending', dueDate: '' },
+    issues: { title: '', description: '', priority: 'medium' },
+    expenses: { title: '', amount: '', category: 'other', date: '' },
+  };
+
+  const openCreate = () => {
+    setCreateForm(CREATE_DEFAULTS[tab] ?? {});
+    setShowCreate(true);
+  };
+
+  const handleQuickCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!id) return;
+    setCreateSaving(true);
+    try {
+      if (tab === 'tasks') await tasksApi.create({ ...createForm, projectId: id, estimatedHours: undefined });
+      if (tab === 'milestones') await milestonesApi.create({ ...createForm, projectId: id });
+      if (tab === 'issues') await issuesApi.create({ ...createForm, projectId: id });
+      if (tab === 'expenses') await expensesApi.create({ ...createForm, amount: Number(createForm.amount), projectId: id });
+      setShowCreate(false);
+      const fetchers: Record<string, () => Promise<any>> = {
+        milestones: () => milestonesApi.getByProject(id!),
+        tasks: () => tasksApi.getByProject(id!),
+        expenses: () => expensesApi.getByProject(id!),
+        issues: () => issuesApi.getByProject(id!),
+      };
+      fetchers[tab]().then((res) => setData(res.data?.data || res.data || []));
+    } catch {} finally { setCreateSaving(false); }
+  };
+
   if (loading) return <div className="p-6"><div className="h-8 w-48 bg-gray-100 rounded-lg animate-pulse" /></div>;
   if (!project) return <div className="p-6 text-gray-500">Project not found.</div>;
 
@@ -159,7 +194,7 @@ const ProjectDetail = () => {
         </div>
       </div>
 
-      <div className="flex gap-1 border-b border-gray-200 mb-6">
+      <div className="flex items-center gap-1 border-b border-gray-200 mb-6">
         {tabs.map(({ key, label }) => (
           <button key={key} onClick={() => setTab(key)}
             className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
@@ -170,6 +205,12 @@ const ProjectDetail = () => {
             {label}
           </button>
         ))}
+        {['tasks','milestones','issues','expenses'].includes(tab) && (
+          <button onClick={openCreate}
+            className="ml-auto text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 mb-1">
+            + New {tab.slice(0, -1)}
+          </button>
+        )}
       </div>
 
       {tab === 'overview' && (
@@ -402,6 +443,105 @@ const ProjectDetail = () => {
                 <button type="submit" disabled={editSaving}
                   className="flex-1 px-4 py-2.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50">
                   {editSaving ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showCreate && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
+            <div className="flex items-center justify-between p-6 border-b border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-900 capitalize">New {tab.slice(0, -1)}</h2>
+              <button onClick={() => setShowCreate(false)} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+            </div>
+            <form onSubmit={handleQuickCreate} className="p-6 space-y-4">
+              {(tab === 'tasks' || tab === 'issues' || tab === 'expenses') && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+                  <input required value={createForm.title ?? ''}
+                    onChange={(e) => setCreateForm({ ...createForm, title: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+              )}
+              {tab === 'milestones' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+                  <input required value={createForm.name ?? ''}
+                    onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+              )}
+              {(tab === 'tasks' || tab === 'milestones' || tab === 'issues') && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                  <textarea value={createForm.description ?? ''}
+                    onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })}
+                    rows={2} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+                </div>
+              )}
+              {(tab === 'tasks' || tab === 'issues') && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                  <select value={createForm.priority ?? 'medium'}
+                    onChange={(e) => setCreateForm({ ...createForm, priority: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    {['low','medium','high','critical'].map((p) => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                </div>
+              )}
+              {tab === 'tasks' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+                  <input type="date" value={createForm.dueDate ?? ''}
+                    onChange={(e) => setCreateForm({ ...createForm, dueDate: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+              )}
+              {tab === 'milestones' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+                    <input type="date" value={createForm.dueDate ?? ''}
+                      onChange={(e) => setCreateForm({ ...createForm, dueDate: e.target.value })}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                    <select value={createForm.status ?? 'pending'}
+                      onChange={(e) => setCreateForm({ ...createForm, status: e.target.value })}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                      {['pending','in_progress','completed','delayed'].map((s) => <option key={s} value={s}>{s.replace('_',' ')}</option>)}
+                    </select>
+                  </div>
+                </div>
+              )}
+              {tab === 'expenses' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Amount ($) *</label>
+                    <input required type="number" min="0" value={createForm.amount ?? ''}
+                      onChange={(e) => setCreateForm({ ...createForm, amount: e.target.value })}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                    <select value={createForm.category ?? 'other'}
+                      onChange={(e) => setCreateForm({ ...createForm, category: e.target.value })}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                      {['labor','material','equipment','travel','other'].map((c) => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                </div>
+              )}
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setShowCreate(false)}
+                  className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 text-sm rounded-lg hover:bg-gray-50">Cancel</button>
+                <button type="submit" disabled={createSaving}
+                  className="flex-1 px-4 py-2.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                  {createSaving ? 'Creating...' : 'Create'}
                 </button>
               </div>
             </form>
