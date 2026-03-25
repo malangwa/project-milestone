@@ -1,5 +1,6 @@
 import { createBrowserRouter } from 'react-router-dom';
 import { ProtectedRoute } from './ProtectedRoute';
+import AppLayout from '../components/layout/AppLayout/AppLayout';
 import Login from '../pages/auth/Login';
 import Register from '../pages/auth/Register';
 import Dashboard from '../pages/dashboard/Dashboard';
@@ -21,6 +22,9 @@ export const router = createBrowserRouter([
   {
     element: <ProtectedRoute />,
     children: [
+      {
+        element: <AppLayout />,
+        children: [
       { path: '/', element: <Dashboard /> },
       { path: '/projects', element: <ProjectList /> },
       { path: '/projects/:id', element: <ProjectDetail /> },
@@ -33,6 +37,8 @@ export const router = createBrowserRouter([
       { path: '/notifications', element: <NotificationsPage /> },
       { path: '/search', element: <SearchPage /> },
       { path: '/settings', element: <Settings /> },
+        ],
+      },
     ],
   },
 ]);
