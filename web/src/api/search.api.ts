@@ -1,5 +1,5 @@
 import api from './axios';
 
 export const searchApi = {
-  // TODO: implement search API calls
+  search: (q: string) => api.get(`/search?q=${encodeURIComponent(q)}`),
 };

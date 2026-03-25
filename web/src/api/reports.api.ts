@@ -1,5 +1,6 @@
 import api from './axios';
 
 export const reportsApi = {
-  // TODO: implement reports API calls
+  getOverview: () => api.get('/reports/overview'),
+  getProjectSummary: (projectId: string) => api.get(`/reports/project/${projectId}`),
 };

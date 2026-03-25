@@ -1,5 +1,8 @@
 import api from './axios';
 
 export const notificationsApi = {
-  // TODO: implement notifications API calls
+  getAll: () => api.get('/notifications'),
+  getUnreadCount: () => api.get('/notifications/unread-count'),
+  markRead: (id: string) => api.patch(`/notifications/${id}/read`),
+  markAllRead: () => api.patch('/notifications/read-all'),
 };

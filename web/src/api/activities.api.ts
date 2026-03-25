@@ -1,5 +1,6 @@
 import api from './axios';
 
 export const activitiesApi = {
-  // TODO: implement activities API calls
+  getByProject: (projectId: string, limit = 50) =>
+    api.get(`/activities/project/${projectId}?limit=${limit}`),
 };
