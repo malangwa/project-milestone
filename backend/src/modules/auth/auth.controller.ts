@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Get, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Patch, Body, UseGuards, Get, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -40,6 +40,18 @@ export class AuthController {
   @ApiOperation({ summary: 'Logout and revoke refresh tokens' })
   logout(@CurrentUser() user: User) {
     return this.authService.logout(user.id);
+  }
+
+  @Patch('change-password')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Change password' })
+  changePassword(
+    @CurrentUser() user: User,
+    @Body() body: { currentPassword: string; newPassword: string },
+  ) {
+    return this.authService.changePassword(user.id, body.currentPassword, body.newPassword);
   }
 
   @Get('me')

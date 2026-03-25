@@ -4,7 +4,7 @@ import api from '../../api/axios';
 
 const Settings = () => {
   const { user, setAuth } = useAuthStore();
-  const token = useAuthStore((s) => s.token);
+  const token = useAuthStore((s) => s.accessToken);
   const [profile, setProfile] = useState({ name: user?.name || '', email: user?.email || '' });
   const [passwords, setPasswords] = useState({ current: '', newPass: '', confirm: '' });
   const [profileMsg, setProfileMsg] = useState('');
@@ -19,7 +19,7 @@ const Settings = () => {
     try {
       const res = await api.patch('/users/me', { name: profile.name });
       const updated = res.data?.data || res.data;
-      setAuth(updated, token!);
+      setAuth(updated, token ?? '');
       setProfileMsg('Profile updated successfully.');
     } catch {
       setProfileMsg('Failed to update profile.');

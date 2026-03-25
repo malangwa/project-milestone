@@ -56,6 +56,17 @@ export class AuthService {
     return tokens;
   }
 
+  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+    const user = await this.usersService.findByEmail(
+      (await this.usersService.findById(userId)).email,
+    );
+    const isMatch = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!isMatch) throw new UnauthorizedException('Current password is incorrect');
+    const newHash = await bcrypt.hash(newPassword, 10);
+    await this.usersService.update(userId, { passwordHash: newHash } as any);
+    return { message: 'Password changed successfully' };
+  }
+
   async logout(userId: string) {
     await this.refreshTokenRepo.update({ userId, isRevoked: false }, { isRevoked: true });
     return { message: 'Logged out successfully' };
