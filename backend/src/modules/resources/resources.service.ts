@@ -10,8 +10,8 @@ export class ResourcesService {
     private readonly repo: Repository<Resource>,
   ) {}
 
-  async create(data: Partial<Resource>): Promise<Resource> {
-    return this.repo.save(this.repo.create(data));
+  async create(data: any): Promise<Resource> {
+    return this.repo.save(this.repo.create(data as any) as unknown as Resource);
   }
 
   async findByProject(projectId: string): Promise<Resource[]> {
@@ -24,7 +24,7 @@ export class ResourcesService {
     return r;
   }
 
-  async update(id: string, data: Partial<Resource>): Promise<Resource> {
+  async update(id: string, data: any): Promise<Resource> {
     await this.repo.update(id, data);
     return this.findOne(id);
   }

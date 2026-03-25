@@ -11,8 +11,8 @@ export class ExpensesService {
     private readonly repo: Repository<Expense>,
   ) {}
 
-  async create(data: Partial<Expense>): Promise<Expense> {
-    return this.repo.save(this.repo.create(data));
+  async create(data: any): Promise<Expense> {
+    return this.repo.save(this.repo.create(data as any) as unknown as Expense);
   }
 
   async findByProject(projectId: string): Promise<Expense[]> {
@@ -41,7 +41,7 @@ export class ExpensesService {
     return this.findOne(id);
   }
 
-  async update(id: string, data: Partial<Expense>): Promise<Expense> {
+  async update(id: string, data: any): Promise<Expense> {
     await this.findOne(id);
     await this.repo.update(id, data);
     return this.findOne(id);

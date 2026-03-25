@@ -1,7 +1,8 @@
 import { IsString, IsEnum, IsOptional, IsNumber, IsUUID, Min } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { ResourceType } from '../entities/resource.entity';
 
-export enum ResourceType { HUMAN = 'human', EQUIPMENT = 'equipment', MATERIAL = 'material', SOFTWARE = 'software', OTHER = 'other' }
+export { ResourceType };
 
 export class CreateResourceDto {
   @ApiProperty() @IsUUID() projectId: string;

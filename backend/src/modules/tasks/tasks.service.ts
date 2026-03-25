@@ -10,8 +10,8 @@ export class TasksService {
     private readonly repo: Repository<Task>,
   ) {}
 
-  async create(data: Partial<Task>): Promise<Task> {
-    return this.repo.save(this.repo.create(data));
+  async create(data: any): Promise<Task> {
+    return this.repo.save(this.repo.create(data as any) as unknown as Task);
   }
 
   async findByProject(projectId: string): Promise<Task[]> {
@@ -28,7 +28,7 @@ export class TasksService {
     return t;
   }
 
-  async update(id: string, data: Partial<Task>): Promise<Task> {
+  async update(id: string, data: any): Promise<Task> {
     await this.findOne(id);
     await this.repo.update(id, data);
     return this.findOne(id);

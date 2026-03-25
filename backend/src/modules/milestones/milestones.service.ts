@@ -10,8 +10,8 @@ export class MilestonesService {
     private readonly repo: Repository<Milestone>,
   ) {}
 
-  async create(data: Partial<Milestone>): Promise<Milestone> {
-    return this.repo.save(this.repo.create(data));
+  async create(data: any): Promise<Milestone> {
+    return this.repo.save(this.repo.create(data as any) as unknown as Milestone);
   }
 
   async findByProject(projectId: string): Promise<Milestone[]> {
@@ -24,7 +24,7 @@ export class MilestonesService {
     return m;
   }
 
-  async update(id: string, data: Partial<Milestone>): Promise<Milestone> {
+  async update(id: string, data: any): Promise<Milestone> {
     await this.findOne(id);
     await this.repo.update(id, data);
     return this.findOne(id);
