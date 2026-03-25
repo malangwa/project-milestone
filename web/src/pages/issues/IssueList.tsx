@@ -64,6 +64,12 @@ const IssueList = () => {
     reload();
   };
 
+  const handleDelete = async (id: string) => {
+    if (!confirm('Delete this issue?')) return;
+    await issuesApi.remove(id);
+    setIssues((prev) => prev.filter((i) => i.id !== id));
+  };
+
   const filtered = filter === 'all' ? issues : issues.filter((i) => i.status === filter);
 
   return (
@@ -106,7 +112,7 @@ const IssueList = () => {
       ) : (
         <div className="space-y-2">
           {filtered.map((issue) => (
-            <div key={issue.id} className="bg-white border border-gray-200 rounded-xl px-5 py-4 flex items-center gap-4">
+            <div key={issue.id} className="bg-white border border-gray-200 rounded-xl px-5 py-4 flex items-center gap-4 group">
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-gray-900">{issue.title}</p>
                 {issue.description && <p className="text-xs text-gray-500 truncate mt-0.5">{issue.description}</p>}
@@ -119,6 +125,8 @@ const IssueList = () => {
               >
                 {STATUSES.map((s) => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
               </select>
+              <button onClick={() => handleDelete(issue.id)}
+                className="text-xs text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">Delete</button>
             </div>
           ))}
         </div>

@@ -47,6 +47,12 @@ const MilestoneList = () => {
     } finally { setSaving(false); }
   };
 
+  const handleDelete = async (id: string) => {
+    if (!confirm('Delete this milestone?')) return;
+    await milestonesApi.remove(id);
+    setMilestones((prev) => prev.filter((m) => m.id !== id));
+  };
+
   return (
     <div className="p-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
@@ -73,7 +79,7 @@ const MilestoneList = () => {
       ) : (
         <div className="space-y-3">
           {milestones.map((m) => (
-            <div key={m.id} className="bg-white border border-gray-200 rounded-xl p-5">
+            <div key={m.id} className="bg-white border border-gray-200 rounded-xl p-5 group">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <h3 className="font-semibold text-gray-900">{m.name}</h3>
@@ -90,6 +96,8 @@ const MilestoneList = () => {
                   <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${statusColor[m.status]}`}>
                     {m.status.replace('_', ' ')}
                   </span>
+                  <button onClick={() => handleDelete(m.id)}
+                    className="text-xs text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">Delete</button>
                 </div>
               </div>
             </div>

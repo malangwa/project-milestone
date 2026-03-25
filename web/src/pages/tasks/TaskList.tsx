@@ -42,6 +42,17 @@ const TaskList = () => {
 
   const reload = () => tasksApi.getByProject(selectedProject).then((res) => setTasks(res.data?.data || res.data || []));
 
+  const handleDelete = async (id: string) => {
+    if (!confirm('Delete this task?')) return;
+    await tasksApi.remove(id);
+    setTasks((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  const handleStatusChange = async (id: string, status: string) => {
+    await tasksApi.update(id, { status });
+    setTasks((prev) => prev.map((t) => t.id === id ? { ...t, status: status as any } : t));
+  };
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -92,7 +103,7 @@ const TaskList = () => {
       ) : (
         <div className="space-y-2">
           {filtered.map((t) => (
-            <div key={t.id} className="bg-white border border-gray-200 rounded-xl px-5 py-4 flex items-center gap-4 hover:border-blue-200 transition-colors">
+            <div key={t.id} className="bg-white border border-gray-200 rounded-xl px-5 py-4 flex items-center gap-4 hover:border-blue-200 transition-colors group">
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-gray-900 truncate">{t.title}</p>
                 {t.description && <p className="text-xs text-gray-500 truncate mt-0.5">{t.description}</p>}
@@ -100,7 +111,13 @@ const TaskList = () => {
               <div className="flex items-center gap-2 shrink-0">
                 {t.dueDate && <span className="text-xs text-gray-400">{new Date(t.dueDate).toLocaleDateString()}</span>}
                 <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${priorityColor[t.priority]}`}>{t.priority}</span>
-                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full capitalize">{t.status.replace('_', ' ')}</span>
+                <select value={t.status}
+                  onChange={(e) => handleStatusChange(t.id, e.target.value)}
+                  className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-400 bg-gray-50 capitalize">
+                  {STATUSES.map((s) => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
+                </select>
+                <button onClick={() => handleDelete(t.id)}
+                  className="text-xs text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">Delete</button>
               </div>
             </div>
           ))}
