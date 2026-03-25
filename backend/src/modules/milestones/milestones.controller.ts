@@ -5,6 +5,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { User } from '../users/entities/user.entity';
 import { CreateMilestoneDto } from './dto/create-milestone.dto';
+import { UpdateMilestoneDto } from './dto/update-milestone.dto';
 
 @ApiTags('milestones')
 @ApiBearerAuth()
@@ -31,8 +32,8 @@ export class MilestonesController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() body: Partial<CreateMilestoneDto>) {
-    return this.milestonesService.update(id, body);
+  update(@Param('id') id: string, @Body() dto: UpdateMilestoneDto) {
+    return this.milestonesService.update(id, dto);
   }
 
   @Delete(':id')

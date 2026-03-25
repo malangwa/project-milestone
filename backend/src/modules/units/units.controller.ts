@@ -3,6 +3,7 @@ import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { UnitsService } from './units.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CreateUnitDto } from './dto/create-unit.dto';
+import { UpdateUnitDto } from './dto/update-unit.dto';
 
 @ApiTags('units')
 @ApiBearerAuth()
@@ -21,7 +22,7 @@ export class UnitsController {
   findOne(@Param('id') id: string) { return this.unitsService.findOne(id); }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() body: Partial<CreateUnitDto>) { return this.unitsService.update(id, body); }
+  update(@Param('id') id: string, @Body() dto: UpdateUnitDto) { return this.unitsService.update(id, dto); }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)

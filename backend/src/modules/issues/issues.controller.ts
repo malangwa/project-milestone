@@ -5,6 +5,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { User } from '../users/entities/user.entity';
 import { CreateIssueDto } from './dto/create-issue.dto';
+import { UpdateIssueDto } from './dto/update-issue.dto';
 
 @ApiTags('issues')
 @ApiBearerAuth()
@@ -31,8 +32,8 @@ export class IssuesController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() body: Partial<CreateIssueDto>) {
-    return this.issuesService.update(id, body);
+  update(@Param('id') id: string, @Body() dto: UpdateIssueDto) {
+    return this.issuesService.update(id, dto);
   }
 
   @Delete(':id')

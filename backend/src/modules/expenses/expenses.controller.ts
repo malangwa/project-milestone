@@ -5,6 +5,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { User } from '../users/entities/user.entity';
 import { CreateExpenseDto } from './dto/create-expense.dto';
+import { UpdateExpenseDto } from './dto/update-expense.dto';
 
 @ApiTags('expenses')
 @ApiBearerAuth()
@@ -31,8 +32,8 @@ export class ExpensesController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() body: Partial<CreateExpenseDto>) {
-    return this.expensesService.update(id, body);
+  update(@Param('id') id: string, @Body() dto: UpdateExpenseDto) {
+    return this.expensesService.update(id, dto);
   }
 
   @Patch(':id/approve')
