@@ -17,7 +17,7 @@ const statusColor: Record<string, string> = {
   cancelled: 'bg-red-100 text-red-700',
 };
 
-type Tab = 'overview' | 'milestones' | 'tasks' | 'expenses' | 'issues' | 'comments';
+type Tab = 'overview' | 'milestones' | 'tasks' | 'expenses' | 'issues' | 'comments' | 'activity';
 
 const ProjectDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -31,6 +31,7 @@ const ProjectDetail = () => {
   const [comments, setComments] = useState<any[]>([]);
   const [commentText, setCommentText] = useState('');
   const [commentSaving, setCommentSaving] = useState(false);
+  const [activities, setActivities] = useState<any[]>([]);
 
   useEffect(() => {
     if (!id) return;
@@ -38,7 +39,7 @@ const ProjectDetail = () => {
   }, [id]);
 
   useEffect(() => {
-    if (!id || tab === 'overview' || tab === 'comments') return;
+    if (!id || tab === 'overview' || tab === 'comments' || tab === 'activity') return;
     setTabLoading(true);
     const fetchers: Record<string, () => Promise<any>> = {
       milestones: () => milestonesApi.getByProject(id),
@@ -56,6 +57,13 @@ const ProjectDetail = () => {
     if (!id || tab !== 'comments') return;
     api.get(`/comments?entityType=project&entityId=${id}`)
       .then((res) => setComments(res.data?.data || res.data || []))
+      .catch(() => {});
+  }, [tab, id]);
+
+  useEffect(() => {
+    if (!id || tab !== 'activity') return;
+    api.get(`/activities/project/${id}?limit=50`)
+      .then((res) => setActivities(res.data?.data || res.data || []))
       .catch(() => {});
   }, [tab, id]);
 
@@ -84,6 +92,7 @@ const ProjectDetail = () => {
     { key: 'expenses', label: 'Expenses' },
     { key: 'issues', label: 'Issues' },
     { key: 'comments', label: `Comments${comments.length > 0 ? ` (${comments.length})` : ''}` },
+    { key: 'activity', label: 'Activity' },
   ];
 
   if (loading) return <div className="p-6"><div className="h-8 w-48 bg-gray-100 rounded-lg animate-pulse" /></div>;
@@ -179,7 +188,34 @@ const ProjectDetail = () => {
         </div>
       )}
 
-      {tab !== 'overview' && tab !== 'comments' && (
+      {tab === 'activity' && (
+        <div className="space-y-3">
+          {activities.length === 0 ? (
+            <div className="text-center py-16 text-gray-400">
+              <p className="text-4xl mb-3">📋</p>
+              <p>No activity recorded for this project yet.</p>
+            </div>
+          ) : (
+            activities.map((a) => (
+              <div key={a.id} className="flex items-start gap-3 bg-white border border-gray-100 rounded-xl px-5 py-4">
+                <div className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
+                  {a.user?.name?.charAt(0).toUpperCase() ?? '?'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-gray-800">
+                    <span className="font-medium">{a.user?.name ?? 'Someone'}</span>
+                    {' '}{a.description || a.action}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5">{new Date(a.createdAt).toLocaleString()}</p>
+                </div>
+                <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full capitalize shrink-0">{a.entityType}</span>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {tab !== 'overview' && tab !== 'comments' && tab !== 'activity' && (
         tabLoading ? (
           <div className="space-y-2">{[...Array(4)].map((_, i) => <div key={i} className="h-14 bg-gray-100 rounded-xl animate-pulse" />)}</div>
         ) : data.length === 0 ? (
