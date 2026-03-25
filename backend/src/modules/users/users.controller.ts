@@ -6,6 +6,8 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { User, UserRole } from './entities/user.entity';
+import { UpdateMeDto } from './dto/update-me.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
 
 @ApiTags('users')
 @ApiBearerAuth()
@@ -36,16 +38,15 @@ export class UsersController {
 
   @Patch('me')
   @ApiOperation({ summary: 'Update current user profile' })
-  updateMe(@CurrentUser() user: User, @Body() body: Partial<User>) {
-    const { passwordHash: _, role: __, ...safe } = body as any;
-    return this.usersService.update(user.id, safe);
+  updateMe(@CurrentUser() user: User, @Body() dto: UpdateMeDto) {
+    return this.usersService.update(user.id, dto);
   }
 
   @Patch(':id')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Admin: update any user' })
-  update(@Param('id') id: string, @Body() body: Partial<User>) {
-    return this.usersService.update(id, body);
+  update(@Param('id') id: string, @Body() dto: UpdateUserDto) {
+    return this.usersService.update(id, dto);
   }
 }
