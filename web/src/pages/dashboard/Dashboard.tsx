@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { projectsApi } from '../../api/projects.api';
 import { useAuthStore } from '../../store/auth.store';
 import { Project } from '../../types/project.types';
@@ -15,9 +15,14 @@ const statusColor: Record<string, string> = {
 
 const Dashboard = () => {
   const { user } = useAuthStore();
+  const navigate = useNavigate();
+  const canCreate = user?.role === 'admin' || user?.role === 'manager';
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<any>(null);
+  const [showNewProject, setShowNewProject] = useState(false);
+  const [newForm, setNewForm] = useState({ name: '', description: '', industry: 'construction', status: 'planning', budget: '' });
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     projectsApi.getAll()
@@ -28,6 +33,22 @@ const Dashboard = () => {
       .then((res) => setSummary(res.data?.data || res.data))
       .catch(() => {});
   }, []);
+
+  const handleCreateProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreating(true);
+    try {
+      const res = await projectsApi.create({
+        ...newForm,
+        budget: newForm.budget ? Number(newForm.budget) : undefined,
+      });
+      const created = res.data?.data || res.data;
+      setProjects((prev) => [created, ...prev]);
+      setShowNewProject(false);
+      setNewForm({ name: '', description: '', industry: 'construction', status: 'planning', budget: '' });
+      navigate(`/projects/${created.id}`);
+    } catch {} finally { setCreating(false); }
+  };
 
   const totalTasks = summary?.tasks?.reduce((s: number, t: any) => s + parseInt(t.count), 0) ?? 0;
   const doneTasks = summary?.tasks?.find((t: any) => t.status === 'done')?.count ?? 0;
@@ -45,9 +66,17 @@ const Dashboard = () => {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Welcome back, {user?.name} 👋</h1>
-        <p className="text-gray-500 mt-1">Here's an overview of your projects</p>
+      <div className="flex items-start justify-between mb-8 flex-wrap gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Welcome back, {user?.name} 👋</h1>
+          <p className="text-gray-500 mt-1">Here's an overview of your projects</p>
+        </div>
+        {canCreate && (
+          <button onClick={() => setShowNewProject(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg">
+            + New Project
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
@@ -91,6 +120,62 @@ const Dashboard = () => {
           </div>
         )}
       </div>
+      {showNewProject && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
+            <div className="flex items-center justify-between p-6 border-b border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-900">New Project</h2>
+              <button onClick={() => setShowNewProject(false)} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+            </div>
+            <form onSubmit={handleCreateProject} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+                <input required value={newForm.name}
+                  onChange={(e) => setNewForm({ ...newForm, name: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g. Office Renovation" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea value={newForm.description}
+                  onChange={(e) => setNewForm({ ...newForm, description: e.target.value })}
+                  rows={2} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Industry</label>
+                  <input value={newForm.industry}
+                    onChange={(e) => setNewForm({ ...newForm, industry: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                  <select value={newForm.status}
+                    onChange={(e) => setNewForm({ ...newForm, status: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    {['planning','active','on_hold'].map((s) => <option key={s} value={s}>{s.replace('_',' ')}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Budget ($)</label>
+                <input type="number" min="0" value={newForm.budget}
+                  onChange={(e) => setNewForm({ ...newForm, budget: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Optional" />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setShowNewProject(false)}
+                  className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 text-sm rounded-lg hover:bg-gray-50">Cancel</button>
+                <button type="submit" disabled={creating}
+                  className="flex-1 px-4 py-2.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                  {creating ? 'Creating...' : 'Create Project'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

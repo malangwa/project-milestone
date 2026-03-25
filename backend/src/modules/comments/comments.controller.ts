@@ -5,6 +5,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { User } from '../users/entities/user.entity';
 import { CommentEntityType } from './entities/comment.entity';
+import { CreateCommentDto } from './dto/create-comment.dto';
 
 @ApiTags('comments')
 @ApiBearerAuth()
@@ -15,8 +16,8 @@ export class CommentsController {
 
   @Post()
   @ApiOperation({ summary: 'Add a comment' })
-  create(@Body() body: { entityType: CommentEntityType; entityId: string; content: string }, @CurrentUser() user: User) {
-    return this.commentsService.create({ ...body, authorId: user.id });
+  create(@Body() dto: CreateCommentDto, @CurrentUser() user: User) {
+    return this.commentsService.create({ ...dto, authorId: user.id });
   }
 
   @Get()
