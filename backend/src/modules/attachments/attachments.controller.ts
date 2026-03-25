@@ -4,6 +4,7 @@ import { AttachmentsService } from './attachments.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { User } from '../users/entities/user.entity';
+import { CreateAttachmentDto } from './dto/create-attachment.dto';
 
 @ApiTags('attachments')
 @ApiBearerAuth()
@@ -14,8 +15,8 @@ export class AttachmentsController {
 
   @Post()
   @ApiOperation({ summary: 'Create an attachment record' })
-  create(@Body() body: any, @CurrentUser() user: User) {
-    return this.attachmentsService.create({ ...body, uploadedById: user.id });
+  create(@Body() dto: CreateAttachmentDto, @CurrentUser() user: User) {
+    return this.attachmentsService.create({ ...dto, uploadedById: user.id });
   }
 
   @Get()

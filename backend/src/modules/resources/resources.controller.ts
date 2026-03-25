@@ -2,6 +2,7 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, HttpCode,
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { ResourcesService } from './resources.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { CreateResourceDto } from './dto/create-resource.dto';
 
 @ApiTags('resources')
 @ApiBearerAuth()
@@ -11,8 +12,8 @@ export class ResourcesController {
   constructor(private readonly resourcesService: ResourcesService) {}
 
   @Post()
-  create(@Body() body: any) {
-    return this.resourcesService.create(body);
+  create(@Body() dto: CreateResourceDto) {
+    return this.resourcesService.create(dto);
   }
 
   @Get('project/:projectId')
@@ -27,7 +28,7 @@ export class ResourcesController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() body: any) {
+  update(@Param('id') id: string, @Body() body: Partial<CreateResourceDto>) {
     return this.resourcesService.update(id, body);
   }
 

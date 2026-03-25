@@ -4,6 +4,7 @@ import { TimeTrackingService } from './time-tracking.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { User } from '../users/entities/user.entity';
+import { CreateTimeEntryDto } from './dto/create-time-entry.dto';
 
 @ApiTags('time-tracking')
 @ApiBearerAuth()
@@ -13,8 +14,8 @@ export class TimeTrackingController {
   constructor(private readonly timeTrackingService: TimeTrackingService) {}
 
   @Post()
-  create(@Body() body: any, @CurrentUser() user: User) {
-    return this.timeTrackingService.create({ ...body, userId: user.id });
+  create(@Body() dto: CreateTimeEntryDto, @CurrentUser() user: User) {
+    return this.timeTrackingService.create({ ...dto, userId: user.id });
   }
 
   @Get('project/:projectId')
@@ -40,7 +41,7 @@ export class TimeTrackingController {
   findOne(@Param('id') id: string) { return this.timeTrackingService.findOne(id); }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() body: any) { return this.timeTrackingService.update(id, body); }
+  update(@Param('id') id: string, @Body() body: Partial<CreateTimeEntryDto>) { return this.timeTrackingService.update(id, body); }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
