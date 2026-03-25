@@ -27,3 +27,22 @@ export interface Task {
   estimatedHours?: number; actualHours?: number;
   createdAt: string; updatedAt: string;
 }
+
+export interface Expense {
+  id: string; projectId: string;
+  title: string; description?: string;
+  amount: number; category: string;
+  status: ExpenseStatus;
+  submittedById?: string;
+  createdAt: string; updatedAt: string;
+}
+
+export type IssuePriority = 'low' | 'medium' | 'high' | 'critical';
+
+export interface Issue {
+  id: string; projectId: string;
+  title: string; description?: string;
+  status: IssueStatus; priority: IssuePriority;
+  reportedById?: string; assignedToId?: string;
+  createdAt: string; updatedAt: string;
+}
