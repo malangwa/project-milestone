@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../../store/auth.store';
 import { authApi } from '../../../api/auth.api';
+import api from '../../../api/axios';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: '▦' },
@@ -12,12 +13,20 @@ const navItems = [
   { to: '/issues', label: 'Issues', icon: '⚠' },
   { to: '/reports', label: 'Reports', icon: '📊' },
   { to: '/calendar', label: 'Calendar', icon: '📅' },
+  { to: '/search', label: 'Search', icon: '🔍' },
 ];
 
 const AppLayout = () => {
   const { user, clearAuth } = useAuthStore();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    api.get('/notifications/unread-count')
+      .then((res) => setUnreadCount((res.data?.data || res.data)?.count ?? 0))
+      .catch(() => {});
+  }, []);
 
   const handleLogout = async () => {
     try { await authApi.logout(); } catch {}
@@ -57,6 +66,35 @@ const AppLayout = () => {
         </nav>
 
         <div className="p-3 border-t border-gray-100">
+          <NavLink
+            to="/notifications"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors mb-1 relative ${
+                isActive ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-600 hover:bg-gray-100'
+              }`
+            }
+          >
+            <span className="text-base shrink-0 relative">
+              🔔
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </span>
+            {!collapsed && <span>Notifications{unreadCount > 0 ? ` (${unreadCount})` : ''}</span>}
+          </NavLink>
+          <NavLink
+            to="/settings"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors mb-1 ${
+                isActive ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-600 hover:bg-gray-100'
+              }`
+            }
+          >
+            <span className="text-base shrink-0">⚙</span>
+            {!collapsed && <span>Settings</span>}
+          </NavLink>
           <div className={`flex items-center gap-3 px-3 py-2 rounded-lg ${collapsed ? '' : 'mb-1'}`}>
             <div className="w-7 h-7 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold shrink-0">
               {user?.name?.charAt(0).toUpperCase()}
