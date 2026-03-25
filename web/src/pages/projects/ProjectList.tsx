@@ -18,7 +18,7 @@ const ProjectList = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({ name: '', description: '', industry: 'other', status: 'planning', budget: '' });
+  const [form, setForm] = useState({ name: '', description: '', industry: 'other', status: 'planning', budget: '', startDate: '', endDate: '' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -37,9 +37,14 @@ const ProjectList = () => {
     setError('');
     setSaving(true);
     try {
-      await projectsApi.create({ ...form, budget: Number(form.budget) || 0 });
+      await projectsApi.create({
+        ...form,
+        budget: Number(form.budget) || 0,
+        startDate: form.startDate || undefined,
+        endDate: form.endDate || undefined,
+      });
       setShowModal(false);
-      setForm({ name: '', description: '', industry: 'other', status: 'planning', budget: '' });
+      setForm({ name: '', description: '', industry: 'other', status: 'planning', budget: '', startDate: '', endDate: '' });
       load();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to create project');
@@ -131,6 +136,18 @@ const ProjectList = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Budget ($)</label>
                 <input type="number" min="0" value={form.budget} onChange={(e) => setForm({ ...form, budget: e.target.value })}
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="0" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                  <input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                  <input type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
               </div>
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowModal(false)}
