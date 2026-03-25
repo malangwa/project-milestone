@@ -21,6 +21,8 @@ const ProjectList = () => {
   const [form, setForm] = useState({ name: '', description: '', industry: 'other', status: 'planning', budget: '', startDate: '', endDate: '' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   const load = () => {
     setLoading(true);
@@ -29,6 +31,20 @@ const ProjectList = () => {
       .catch(() => {})
       .finally(() => setLoading(false));
   };
+
+  const handleDelete = async (id: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!confirm('Delete this project? This cannot be undone.')) return;
+    setDeleting(id);
+    try {
+      await projectsApi.remove(id);
+      setProjects((prev) => prev.filter((p) => p.id !== id));
+    } catch {} finally {
+      setDeleting(null);
+    }
+  };
+
+  const filtered = filterStatus === 'all' ? projects : projects.filter((p) => p.status === filterStatus);
 
   useEffect(() => { load(); }, []);
 
@@ -55,7 +71,7 @@ const ProjectList = () => {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Projects</h1>
           <p className="text-gray-500 text-sm mt-1">{projects.length} project{projects.length !== 1 ? 's' : ''}</p>
@@ -67,6 +83,16 @@ const ProjectList = () => {
           + New Project
         </button>
       </div>
+      <div className="flex gap-2 mb-5 overflow-x-auto pb-1">
+        {['all', ...STATUSES].map((s) => (
+          <button key={s} onClick={() => setFilterStatus(s)}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap capitalize transition-colors ${
+              filterStatus === s ? 'bg-blue-600 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+            }`}>
+            {s === 'all' ? `All (${projects.length})` : `${s.replace('_', ' ')} (${projects.filter(p => p.status === s).length})`}
+          </button>
+        ))}
+      </div>
 
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -76,23 +102,34 @@ const ProjectList = () => {
         <div className="text-center py-20">
           <p className="text-gray-400">No projects yet. Create your first one!</p>
         </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-16 text-gray-400">No projects match the selected filter.</div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {projects.map((p) => (
-            <Link key={p.id} to={`/projects/${p.id}`}
-              className="bg-white border border-gray-200 rounded-xl p-5 hover:border-blue-300 hover:shadow-sm transition-all">
-              <div className="flex items-start justify-between mb-3">
-                <h3 className="font-semibold text-gray-900 leading-tight">{p.name}</h3>
-                <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize shrink-0 ml-2 ${statusColor[p.status]}`}>
-                  {p.status.replace('_', ' ')}
-                </span>
-              </div>
-              {p.description && <p className="text-sm text-gray-500 line-clamp-2 mb-3">{p.description}</p>}
-              <div className="flex items-center justify-between text-xs text-gray-400">
-                <span className="capitalize">{p.industry}</span>
-                {p.budget > 0 && <span>${Number(p.budget).toLocaleString()}</span>}
-              </div>
-            </Link>
+          {filtered.map((p) => (
+            <div key={p.id} className="relative group">
+              <Link to={`/projects/${p.id}`}
+                className="block bg-white border border-gray-200 rounded-xl p-5 hover:border-blue-300 hover:shadow-sm transition-all">
+                <div className="flex items-start justify-between mb-3">
+                  <h3 className="font-semibold text-gray-900 leading-tight pr-2">{p.name}</h3>
+                  <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize shrink-0 ${statusColor[p.status]}`}>
+                    {p.status.replace('_', ' ')}
+                  </span>
+                </div>
+                {p.description && <p className="text-sm text-gray-500 line-clamp-2 mb-3">{p.description}</p>}
+                <div className="flex items-center justify-between text-xs text-gray-400">
+                  <span className="capitalize">{p.industry}</span>
+                  {p.budget > 0 && <span>${Number(p.budget).toLocaleString()}</span>}
+                </div>
+              </Link>
+              <button
+                onClick={(e) => handleDelete(p.id, e)}
+                disabled={deleting === p.id}
+                className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 text-xs text-red-400 hover:text-red-600 bg-white border border-red-100 rounded px-1.5 py-0.5 transition-opacity disabled:opacity-50"
+              >
+                {deleting === p.id ? '...' : 'Delete'}
+              </button>
+            </div>
           ))}
         </div>
       )}
