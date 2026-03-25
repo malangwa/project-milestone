@@ -7,6 +7,7 @@ import { expensesApi } from '../../api/expenses.api';
 import { issuesApi } from '../../api/issues.api';
 import { Project } from '../../types/project.types';
 import { useAuthStore } from '../../store/auth.store';
+import api from '../../api/axios';
 
 const statusColor: Record<string, string> = {
   planning: 'bg-gray-100 text-gray-700',
@@ -16,7 +17,7 @@ const statusColor: Record<string, string> = {
   cancelled: 'bg-red-100 text-red-700',
 };
 
-type Tab = 'overview' | 'milestones' | 'tasks' | 'expenses' | 'issues';
+type Tab = 'overview' | 'milestones' | 'tasks' | 'expenses' | 'issues' | 'comments';
 
 const ProjectDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -27,6 +28,9 @@ const ProjectDetail = () => {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [tabLoading, setTabLoading] = useState(false);
+  const [comments, setComments] = useState<any[]>([]);
+  const [commentText, setCommentText] = useState('');
+  const [commentSaving, setCommentSaving] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -34,7 +38,7 @@ const ProjectDetail = () => {
   }, [id]);
 
   useEffect(() => {
-    if (!id || tab === 'overview') return;
+    if (!id || tab === 'overview' || tab === 'comments') return;
     setTabLoading(true);
     const fetchers: Record<string, () => Promise<any>> = {
       milestones: () => milestonesApi.getByProject(id),
@@ -48,12 +52,38 @@ const ProjectDetail = () => {
       .finally(() => setTabLoading(false));
   }, [tab, id]);
 
+  useEffect(() => {
+    if (!id || tab !== 'comments') return;
+    api.get(`/comments?entityType=project&entityId=${id}`)
+      .then((res) => setComments(res.data?.data || res.data || []))
+      .catch(() => {});
+  }, [tab, id]);
+
+  const postComment = async () => {
+    if (!commentText.trim() || !id) return;
+    setCommentSaving(true);
+    try {
+      const res = await api.post('/comments', { entityType: 'project', entityId: id, content: commentText });
+      const created = res.data?.data || res.data;
+      setComments((prev) => [...prev, created]);
+      setCommentText('');
+    } catch {} finally {
+      setCommentSaving(false);
+    }
+  };
+
+  const deleteComment = async (commentId: string) => {
+    await api.delete(`/comments/${commentId}`);
+    setComments((prev) => prev.filter((c) => c.id !== commentId));
+  };
+
   const tabs: { key: Tab; label: string }[] = [
     { key: 'overview', label: 'Overview' },
     { key: 'milestones', label: 'Milestones' },
     { key: 'tasks', label: 'Tasks' },
     { key: 'expenses', label: 'Expenses' },
     { key: 'issues', label: 'Issues' },
+    { key: 'comments', label: `Comments${comments.length > 0 ? ` (${comments.length})` : ''}` },
   ];
 
   if (loading) return <div className="p-6"><div className="h-8 w-48 bg-gray-100 rounded-lg animate-pulse" /></div>;
@@ -108,7 +138,48 @@ const ProjectDetail = () => {
         </div>
       )}
 
-      {tab !== 'overview' && (
+      {tab === 'comments' && (
+        <div className="space-y-4">
+          <div className="bg-white border border-gray-200 rounded-xl p-4">
+            <textarea
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+              placeholder="Write a comment..."
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+            />
+            <div className="flex justify-end mt-2">
+              <button onClick={postComment} disabled={!commentText.trim() || commentSaving}
+                className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                {commentSaving ? 'Posting...' : 'Post Comment'}
+              </button>
+            </div>
+          </div>
+          {comments.length === 0 ? (
+            <div className="text-center py-10 text-gray-400">No comments yet. Be the first to comment!</div>
+          ) : (
+            comments.map((c) => (
+              <div key={c.id} className="bg-white border border-gray-200 rounded-xl px-5 py-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-7 h-7 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold shrink-0">
+                      {c.author?.name?.charAt(0).toUpperCase() ?? '?'}
+                    </div>
+                    <span className="text-sm font-medium text-gray-900">{c.author?.name ?? 'Unknown'}</span>
+                    <span className="text-xs text-gray-400">{new Date(c.createdAt).toLocaleString()}</span>
+                  </div>
+                  {c.authorId === user?.id && (
+                    <button onClick={() => deleteComment(c.id)} className="text-xs text-red-400 hover:text-red-600">Delete</button>
+                  )}
+                </div>
+                <p className="text-sm text-gray-700 ml-9">{c.content}</p>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {tab !== 'overview' && tab !== 'comments' && (
         tabLoading ? (
           <div className="space-y-2">{[...Array(4)].map((_, i) => <div key={i} className="h-14 bg-gray-100 rounded-xl animate-pulse" />)}</div>
         ) : data.length === 0 ? (

@@ -15,6 +15,7 @@ import Calendar from '../pages/calendar/Calendar';
 import Settings from '../pages/settings/Settings';
 import NotificationsPage from '../pages/notifications/NotificationsPage';
 import SearchPage from '../pages/search/SearchPage';
+import UsersManagement from '../pages/users/UsersManagement';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <Login /> },
@@ -37,6 +38,7 @@ export const router = createBrowserRouter([
       { path: '/notifications', element: <NotificationsPage /> },
       { path: '/search', element: <SearchPage /> },
       { path: '/settings', element: <Settings /> },
+      { path: '/users', element: <UsersManagement /> },
         ],
       },
     ],

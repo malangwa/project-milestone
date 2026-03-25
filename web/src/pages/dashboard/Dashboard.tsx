@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { projectsApi } from '../../api/projects.api';
 import { useAuthStore } from '../../store/auth.store';
 import { Project } from '../../types/project.types';
+import api from '../../api/axios';
 
 const statusColor: Record<string, string> = {
   planning: 'bg-gray-100 text-gray-700',
@@ -16,19 +17,30 @@ const Dashboard = () => {
   const { user } = useAuthStore();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const [summary, setSummary] = useState<any>(null);
 
   useEffect(() => {
     projectsApi.getAll()
       .then((res) => setProjects(res.data?.data || res.data || []))
       .catch(() => {})
       .finally(() => setLoading(false));
+    api.get('/reports/overview')
+      .then((res) => setSummary(res.data?.data || res.data))
+      .catch(() => {});
   }, []);
+
+  const totalTasks = summary?.tasks?.reduce((s: number, t: any) => s + parseInt(t.count), 0) ?? 0;
+  const doneTasks = summary?.tasks?.find((t: any) => t.status === 'done')?.count ?? 0;
+  const openIssues = summary?.issues?.find((i: any) => i.status === 'open')?.count ?? 0;
+  const approvedExpenses = summary?.approvedExpenses ?? 0;
 
   const stats = [
     { label: 'Total Projects', value: projects.length, color: 'bg-blue-50 text-blue-700' },
     { label: 'Active', value: projects.filter((p) => p.status === 'active').length, color: 'bg-green-50 text-green-700' },
+    { label: 'Tasks Done', value: `${doneTasks}/${totalTasks}`, color: 'bg-purple-50 text-purple-700' },
+    { label: 'Open Issues', value: openIssues, color: 'bg-red-50 text-red-700' },
+    { label: 'Approved Spend', value: `$${Number(approvedExpenses).toLocaleString()}`, color: 'bg-indigo-50 text-indigo-700' },
     { label: 'On Hold', value: projects.filter((p) => p.status === 'on_hold').length, color: 'bg-yellow-50 text-yellow-700' },
-    { label: 'Completed', value: projects.filter((p) => p.status === 'completed').length, color: 'bg-indigo-50 text-indigo-700' },
   ];
 
   return (
@@ -38,7 +50,7 @@ const Dashboard = () => {
         <p className="text-gray-500 mt-1">Here's an overview of your projects</p>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
         {stats.map((s) => (
           <div key={s.label} className={`rounded-xl p-5 ${s.color}`}>
             <p className="text-3xl font-bold">{s.value}</p>

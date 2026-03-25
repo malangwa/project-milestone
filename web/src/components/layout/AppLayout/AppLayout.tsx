@@ -14,6 +14,7 @@ const navItems = [
   { to: '/reports', label: 'Reports', icon: '📊' },
   { to: '/calendar', label: 'Calendar', icon: '📅' },
   { to: '/search', label: 'Search', icon: '🔍' },
+  { to: '/users', label: 'Users', icon: '👥', adminOnly: true },
 ];
 
 const AppLayout = () => {
@@ -46,7 +47,7 @@ const AppLayout = () => {
         </div>
 
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {navItems.map(({ to, label, icon }) => (
+          {navItems.filter(({ adminOnly }) => !adminOnly || user?.role === 'admin' || user?.role === 'manager').map(({ to, label, icon }) => (
             <NavLink
               key={to}
               to={to}
