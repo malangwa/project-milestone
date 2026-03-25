@@ -5,6 +5,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { CreateUserDto } from '../users/dto/create-user.dto';
 import { LoginDto } from './dto/login.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { User } from '../users/entities/user.entity';
 
@@ -49,9 +50,9 @@ export class AuthController {
   @ApiOperation({ summary: 'Change password' })
   changePassword(
     @CurrentUser() user: User,
-    @Body() body: { currentPassword: string; newPassword: string },
+    @Body() dto: ChangePasswordDto,
   ) {
-    return this.authService.changePassword(user.id, body.currentPassword, body.newPassword);
+    return this.authService.changePassword(user.id, dto.currentPassword, dto.newPassword);
   }
 
   @Get('me')
