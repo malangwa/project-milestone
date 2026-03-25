@@ -4,6 +4,7 @@ import { TasksService } from './tasks.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { User } from '../users/entities/user.entity';
+import { CreateTaskDto } from './dto/create-task.dto';
 
 @ApiTags('tasks')
 @ApiBearerAuth()
@@ -14,8 +15,8 @@ export class TasksController {
 
   @Post()
   @ApiOperation({ summary: 'Create a task' })
-  create(@Body() body: any, @CurrentUser() user: User) {
-    return this.tasksService.create({ ...body, createdById: user.id });
+  create(@Body() dto: CreateTaskDto, @CurrentUser() user: User) {
+    return this.tasksService.create({ ...dto, createdById: user.id });
   }
 
   @Get('project/:projectId')
@@ -34,7 +35,7 @@ export class TasksController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() body: any) {
+  update(@Param('id') id: string, @Body() body: Partial<CreateTaskDto>) {
     return this.tasksService.update(id, body);
   }
 

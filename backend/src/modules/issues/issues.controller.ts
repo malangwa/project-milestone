@@ -4,6 +4,7 @@ import { IssuesService } from './issues.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { User } from '../users/entities/user.entity';
+import { CreateIssueDto } from './dto/create-issue.dto';
 
 @ApiTags('issues')
 @ApiBearerAuth()
@@ -14,8 +15,8 @@ export class IssuesController {
 
   @Post()
   @ApiOperation({ summary: 'Report an issue' })
-  create(@Body() body: any, @CurrentUser() user: User) {
-    return this.issuesService.create({ ...body, reportedById: user.id });
+  create(@Body() dto: CreateIssueDto, @CurrentUser() user: User) {
+    return this.issuesService.create({ ...dto, reportedById: user.id });
   }
 
   @Get('project/:projectId')
@@ -30,7 +31,7 @@ export class IssuesController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() body: any) {
+  update(@Param('id') id: string, @Body() body: Partial<CreateIssueDto>) {
     return this.issuesService.update(id, body);
   }
 
