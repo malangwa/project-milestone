@@ -54,6 +54,11 @@ const ExpenseList = () => {
 
   const handleApprove = async (id: string) => { await expensesApi.approve(id); reload(); };
   const handleReject = async (id: string) => { await expensesApi.reject(id); reload(); };
+  const handleDelete = async (id: string) => {
+    if (!confirm('Delete this expense?')) return;
+    await expensesApi.remove(id);
+    setExpenses((prev) => prev.filter((e) => e.id !== id));
+  };
 
   const total = expenses.filter((e) => e.status === 'approved').reduce((s, e) => s + Number(e.amount), 0);
   const pending = expenses.filter((e) => e.status === 'pending').length;
@@ -84,7 +89,7 @@ const ExpenseList = () => {
       ) : (
         <div className="space-y-2">
           {expenses.map((e) => (
-            <div key={e.id} className="bg-white border border-gray-200 rounded-xl px-5 py-4 flex items-center gap-4">
+            <div key={e.id} className="bg-white border border-gray-200 rounded-xl px-5 py-4 flex items-center gap-4 group">
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-gray-900">{e.title}</p>
                 <p className="text-xs text-gray-500 mt-0.5 capitalize">{e.category}{e.date ? ` · ${new Date(e.date).toLocaleDateString()}` : ''}</p>
@@ -99,6 +104,8 @@ const ExpenseList = () => {
                     className="text-xs px-3 py-1.5 bg-red-100 text-red-700 rounded-lg hover:bg-red-200">Reject</button>
                 </div>
               )}
+              <button onClick={() => handleDelete(e.id)}
+                className="text-xs text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">Delete</button>
             </div>
           ))}
         </div>
