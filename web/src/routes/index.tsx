@@ -17,6 +17,7 @@ import NotificationsPage from '../pages/notifications/NotificationsPage';
 import SearchPage from '../pages/search/SearchPage';
 import UsersManagement from '../pages/users/UsersManagement';
 import TimeTracking from '../pages/time-tracking/TimeTracking';
+import ResourcesPage from '../pages/resources/ResourcesPage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <Login /> },
@@ -41,6 +42,7 @@ export const router = createBrowserRouter([
       { path: '/settings', element: <Settings /> },
       { path: '/users', element: <UsersManagement /> },
       { path: '/time-tracking', element: <TimeTracking /> },
+      { path: '/resources', element: <ResourcesPage /> },
         ],
       },
     ],

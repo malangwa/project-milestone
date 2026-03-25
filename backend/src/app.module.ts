@@ -20,6 +20,7 @@ import { TimeTrackingModule } from './modules/time-tracking/time-tracking.module
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
+import { SearchModule } from './modules/search/search.module';
 
 @Module({
   imports: [
@@ -58,6 +59,7 @@ import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
     NotificationsModule,
     ReportsModule,
     AuditLogsModule,
+    SearchModule,
   ],
 })
 export class AppModule {}
