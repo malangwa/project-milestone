@@ -8,6 +8,8 @@ export enum ResourceType {
   HUMAN = 'human',
   EQUIPMENT = 'equipment',
   MATERIAL = 'material',
+  SOFTWARE = 'software',
+  OTHER = 'other',
 }
 
 @Entity('resources')
