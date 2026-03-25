@@ -420,13 +420,14 @@ resources (
   id UUID PRIMARY KEY,
   project_id UUID → projects,
   name VARCHAR,
-  type ENUM('material','equipment','labor'),
+  type ENUM('human','equipment','material','software','other'),
   quantity DECIMAL,
   unit VARCHAR,
-  unit_cost DECIMAL,
-  total_cost DECIMAL,
-  supplier VARCHAR,
-  created_at TIMESTAMP
+  cost_per_unit DECIMAL,
+  role VARCHAR,
+  notes TEXT,
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP
 )
 
 -- ACTIVITIES (Site Updates)
@@ -579,7 +580,7 @@ audit_logs (
 ├── resources/      (similar CRUD pattern)
 ├── activities/     (similar CRUD pattern)
 ├── units/          (similar CRUD pattern)
-├── time-entries/   (similar CRUD pattern)
+├── time-tracking/  (similar CRUD pattern)
 │
 ├── comments/
 │   ├── GET    /:entityType/:entityId
