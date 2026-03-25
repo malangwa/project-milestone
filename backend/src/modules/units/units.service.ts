@@ -10,8 +10,8 @@ export class UnitsService {
     private readonly repo: Repository<Unit>,
   ) {}
 
-  async create(data: Partial<Unit>): Promise<Unit> {
-    return this.repo.save(this.repo.create(data));
+  async create(data: any): Promise<Unit> {
+    return this.repo.save(this.repo.create(data as any) as unknown as Unit);
   }
 
   async findAll(): Promise<Unit[]> {
@@ -24,7 +24,7 @@ export class UnitsService {
     return u;
   }
 
-  async update(id: string, data: Partial<Unit>): Promise<Unit> {
+  async update(id: string, data: any): Promise<Unit> {
     await this.repo.update(id, data);
     return this.findOne(id);
   }

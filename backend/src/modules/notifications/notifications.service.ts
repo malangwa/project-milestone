@@ -10,8 +10,8 @@ export class NotificationsService {
     private readonly repo: Repository<Notification>,
   ) {}
 
-  async create(data: Partial<Notification>): Promise<Notification> {
-    return this.repo.save(this.repo.create(data));
+  async create(data: any): Promise<Notification> {
+    return this.repo.save(this.repo.create(data as any) as unknown as Notification);
   }
 
   async findForUser(userId: string): Promise<Notification[]> {

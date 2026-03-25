@@ -10,8 +10,8 @@ export class TimeTrackingService {
     private readonly repo: Repository<TimeEntry>,
   ) {}
 
-  async create(data: Partial<TimeEntry>): Promise<TimeEntry> {
-    return this.repo.save(this.repo.create(data));
+  async create(data: any): Promise<TimeEntry> {
+    return this.repo.save(this.repo.create(data as any) as unknown as TimeEntry);
   }
 
   async findByProject(projectId: string): Promise<TimeEntry[]> {
@@ -36,7 +36,7 @@ export class TimeTrackingService {
     return e;
   }
 
-  async update(id: string, data: Partial<TimeEntry>): Promise<TimeEntry> {
+  async update(id: string, data: any): Promise<TimeEntry> {
     await this.repo.update(id, data);
     return this.findOne(id);
   }

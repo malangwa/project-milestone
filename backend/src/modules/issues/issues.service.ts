@@ -10,8 +10,8 @@ export class IssuesService {
     private readonly repo: Repository<Issue>,
   ) {}
 
-  async create(data: Partial<Issue>): Promise<Issue> {
-    return this.repo.save(this.repo.create(data));
+  async create(data: any): Promise<Issue> {
+    return this.repo.save(this.repo.create(data as any) as unknown as Issue);
   }
 
   async findByProject(projectId: string): Promise<Issue[]> {
@@ -24,10 +24,10 @@ export class IssuesService {
     return issue;
   }
 
-  async update(id: string, data: Partial<Issue>): Promise<Issue> {
+  async update(id: string, data: any): Promise<Issue> {
     await this.findOne(id);
     if (data.status === IssueStatus.RESOLVED) {
-      (data as any).resolvedAt = new Date();
+      data.resolvedAt = new Date();
     }
     await this.repo.update(id, data);
     return this.findOne(id);

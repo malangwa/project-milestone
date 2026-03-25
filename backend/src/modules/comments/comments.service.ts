@@ -10,8 +10,8 @@ export class CommentsService {
     private readonly repo: Repository<Comment>,
   ) {}
 
-  async create(data: Partial<Comment>): Promise<Comment> {
-    return this.repo.save(this.repo.create(data));
+  async create(data: any): Promise<Comment> {
+    return this.repo.save(this.repo.create(data as any) as unknown as Comment);
   }
 
   async findByEntity(entityType: CommentEntityType, entityId: string): Promise<Comment[]> {

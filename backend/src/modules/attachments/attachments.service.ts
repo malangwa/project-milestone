@@ -10,8 +10,8 @@ export class AttachmentsService {
     private readonly repo: Repository<Attachment>,
   ) {}
 
-  async create(data: Partial<Attachment>): Promise<Attachment> {
-    return this.repo.save(this.repo.create(data));
+  async create(data: any): Promise<Attachment> {
+    return this.repo.save(this.repo.create(data as any) as unknown as Attachment);
   }
 
   async findByEntity(entityType: string, entityId: string): Promise<Attachment[]> {
