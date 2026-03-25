@@ -412,9 +412,11 @@ const ProjectDetail = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Industry</label>
-                  <input value={editForm.industry}
+                  <select value={editForm.industry}
                     onChange={(e) => setEditForm({ ...editForm, industry: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    {['construction','telecom','software','other'].map((i) => <option key={i} value={i}>{i}</option>)}
+                  </select>
                 </div>
               </div>
               <div>
