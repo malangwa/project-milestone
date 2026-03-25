@@ -14,6 +14,7 @@ const navItems = [
   { to: '/reports', label: 'Reports', icon: '📊' },
   { to: '/calendar', label: 'Calendar', icon: '📅' },
   { to: '/search', label: 'Search', icon: '🔍' },
+  { to: '/time-tracking', label: 'Time Tracking', icon: '⏱' },
   { to: '/users', label: 'Users', icon: '👥', adminOnly: true },
 ];
 
