@@ -57,7 +57,8 @@ const TaskList = () => {
     e.preventDefault();
     setSaving(true);
     try {
-      await tasksApi.create({ ...form, projectId: selectedProject, estimatedHours: Number(form.estimatedHours) || undefined });
+      const clean = Object.fromEntries(Object.entries(form).filter(([, v]) => v !== ''));
+      await tasksApi.create({ ...clean, projectId: selectedProject, estimatedHours: Number(form.estimatedHours) || undefined });
       setShowModal(false);
       setForm({ title: '', description: '', priority: 'medium', status: 'todo', dueDate: '', estimatedHours: '' });
       reload();

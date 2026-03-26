@@ -39,6 +39,7 @@ const ProjectDetail = () => {
   const [showCreate, setShowCreate] = useState(false);
   const [createForm, setCreateForm] = useState<Record<string, string>>({});
   const [createSaving, setCreateSaving] = useState(false);
+  const [createError, setCreateError] = useState('');
 
   useEffect(() => {
     if (!id) return;
@@ -141,19 +142,26 @@ const ProjectDetail = () => {
 
   const openCreate = () => {
     setCreateForm(CREATE_DEFAULTS[tab] ?? {});
+    setCreateError('');
     setShowCreate(true);
   };
+
+  const stripEmpty = (obj: Record<string, string>) =>
+    Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== '' && v !== undefined));
 
   const handleQuickCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!id) return;
     setCreateSaving(true);
+    setCreateError('');
     try {
-      if (tab === 'tasks') await tasksApi.create({ ...createForm, projectId: id, estimatedHours: undefined });
-      if (tab === 'milestones') await milestonesApi.create({ ...createForm, projectId: id });
-      if (tab === 'issues') await issuesApi.create({ ...createForm, projectId: id });
-      if (tab === 'expenses') await expensesApi.create({ ...createForm, amount: Number(createForm.amount), projectId: id });
+      const clean = stripEmpty(createForm);
+      if (tab === 'tasks') await tasksApi.create({ ...clean, projectId: id });
+      if (tab === 'milestones') await milestonesApi.create({ ...clean, projectId: id });
+      if (tab === 'issues') await issuesApi.create({ ...clean, projectId: id });
+      if (tab === 'expenses') await expensesApi.create({ ...clean, amount: Number(clean.amount), projectId: id });
       setShowCreate(false);
+      setCreateError('');
       const fetchers: Record<string, () => Promise<any>> = {
         milestones: () => milestonesApi.getByProject(id!),
         tasks: () => tasksApi.getByProject(id!),
@@ -161,7 +169,10 @@ const ProjectDetail = () => {
         issues: () => issuesApi.getByProject(id!),
       };
       fetchers[tab]().then((res) => setData(res.data?.data || res.data || []));
-    } catch {} finally { setCreateSaving(false); }
+    } catch (err: any) {
+      const msg = err.response?.data?.message;
+      setCreateError(Array.isArray(msg) ? msg.join(', ') : (msg || 'Failed to create'));
+    } finally { setCreateSaving(false); }
   };
 
   if (loading) return <div className="p-6"><div className="h-8 w-48 bg-gray-100 rounded-lg animate-pulse" /></div>;
@@ -460,6 +471,9 @@ const ProjectDetail = () => {
               <button onClick={() => setShowCreate(false)} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
             </div>
             <form onSubmit={handleQuickCreate} className="p-6 space-y-4">
+              {createError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{createError}</div>
+              )}
               {(tab === 'tasks' || tab === 'issues' || tab === 'expenses') && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>

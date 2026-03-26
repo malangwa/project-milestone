@@ -40,7 +40,8 @@ const MilestoneList = () => {
     e.preventDefault();
     setSaving(true);
     try {
-      await milestonesApi.create({ ...form, projectId: selectedProject });
+      const clean = Object.fromEntries(Object.entries(form).filter(([, v]) => v !== ''));
+      await milestonesApi.create({ ...clean, projectId: selectedProject });
       setShowModal(false);
       setForm({ name: '', description: '', dueDate: '', status: 'pending' });
       milestonesApi.getByProject(selectedProject).then((res) => setMilestones(res.data?.data || res.data || []));
