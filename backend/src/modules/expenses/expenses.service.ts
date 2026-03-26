@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/commo
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Expense, ExpenseStatus } from './entities/expense.entity';
+import { Project } from '../projects/entities/project.entity';
 import { UserRole } from '../users/entities/user.entity';
 
 @Injectable()
@@ -9,6 +10,8 @@ export class ExpensesService {
   constructor(
     @InjectRepository(Expense)
     private readonly repo: Repository<Expense>,
+    @InjectRepository(Project)
+    private readonly projectsRepo: Repository<Project>,
   ) {}
 
   async create(data: any): Promise<Expense> {
@@ -25,18 +28,22 @@ export class ExpensesService {
     return e;
   }
 
+  private async isProjectOwner(expenseId: string, userId: string): Promise<boolean> {
+    const expense = await this.findOne(expenseId);
+    const project = await this.projectsRepo.findOne({ where: { id: expense.projectId } });
+    return project?.ownerId === userId;
+  }
+
   async approve(id: string, approverId: string, role: UserRole): Promise<Expense> {
-    if (role !== UserRole.ADMIN && role !== UserRole.MANAGER) {
-      throw new ForbiddenException('Only admins and managers can approve expenses');
-    }
+    const allowed = role === UserRole.ADMIN || role === UserRole.MANAGER || await this.isProjectOwner(id, approverId);
+    if (!allowed) throw new ForbiddenException('Not authorized to approve expenses');
     await this.repo.update(id, { status: ExpenseStatus.APPROVED, approvedById: approverId });
     return this.findOne(id);
   }
 
   async reject(id: string, approverId: string, role: UserRole): Promise<Expense> {
-    if (role !== UserRole.ADMIN && role !== UserRole.MANAGER) {
-      throw new ForbiddenException('Only admins and managers can reject expenses');
-    }
+    const allowed = role === UserRole.ADMIN || role === UserRole.MANAGER || await this.isProjectOwner(id, approverId);
+    if (!allowed) throw new ForbiddenException('Not authorized to reject expenses');
     await this.repo.update(id, { status: ExpenseStatus.REJECTED, approvedById: approverId });
     return this.findOne(id);
   }

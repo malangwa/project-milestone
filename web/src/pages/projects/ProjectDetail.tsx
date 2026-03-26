@@ -22,9 +22,11 @@ type Tab = 'overview' | 'milestones' | 'tasks' | 'expenses' | 'issues' | 'commen
 const ProjectDetail = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuthStore();
-  const canApprove = user?.role === 'admin' || user?.role === 'manager';
-  const canEdit = user?.role === 'admin' || user?.role === 'manager';
   const [project, setProject] = useState<Project | null>(null);
+  const isOwner = !!user && !!project && user.id === project.ownerId;
+  const isAdminOrManager = user?.role === 'admin' || user?.role === 'manager';
+  const canEdit = isAdminOrManager || isOwner;
+  const canApprove = isAdminOrManager || isOwner;
   const [tab, setTab] = useState<Tab>('overview');
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
