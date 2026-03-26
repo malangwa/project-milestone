@@ -21,16 +21,16 @@ export class UsersController {
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: 'List all users (admin/manager only)' })
-  findAll() {
-    return this.usersService.findAll();
+  findAll(@CurrentUser() user: User) {
+    return this.usersService.findAll(user.id, user.role);
   }
 
   @Post()
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Admin: create a new user' })
-  create(@Body() dto: CreateUserDto) {
-    return this.usersService.create(dto);
+  create(@Body() dto: CreateUserDto, @CurrentUser() user: User) {
+    return this.usersService.create(dto, user.id);
   }
 
   @Get('me')

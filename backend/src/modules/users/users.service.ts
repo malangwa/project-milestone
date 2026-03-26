@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, ConflictException } from '@nestjs/common
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import { User } from './entities/user.entity';
+import { User, UserRole } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 
 @Injectable()
@@ -12,11 +12,11 @@ export class UsersService {
     private readonly usersRepo: Repository<User>,
   ) {}
 
-  async create(dto: CreateUserDto): Promise<User> {
+  async create(dto: CreateUserDto, createdById?: string): Promise<User> {
     const exists = await this.usersRepo.findOne({ where: { email: dto.email } });
     if (exists) throw new ConflictException('Email already in use');
     const passwordHash = await bcrypt.hash(dto.password, 10);
-    const user = this.usersRepo.create({ ...dto, passwordHash });
+    const user = this.usersRepo.create({ ...dto, passwordHash, createdById: createdById ?? null });
     return this.usersRepo.save(user);
   }
 
@@ -34,8 +34,14 @@ export class UsersService {
     return user;
   }
 
-  async findAll(): Promise<User[]> {
-    return this.usersRepo.find({ where: { isActive: true } });
+  async findAll(requesterId: string, role: UserRole): Promise<User[]> {
+    if (role === UserRole.ADMIN) {
+      return this.usersRepo.find({
+        where: [{ createdById: requesterId }, { id: requesterId }],
+        order: { createdAt: 'ASC' },
+      });
+    }
+    return this.usersRepo.find({ where: { id: requesterId } });
   }
 
   async update(id: string, data: Partial<User>): Promise<User> {
