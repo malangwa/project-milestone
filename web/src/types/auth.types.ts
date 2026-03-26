@@ -1,6 +1,6 @@
 export type UserRole = 'admin' | 'manager' | 'engineer' | 'viewer' | 'client' | 'subcontractor';
 
-export interface User {
+export type User = {
   id: string;
   name: string;
   email: string;
@@ -8,12 +8,12 @@ export interface User {
   avatarUrl?: string;
   isActive: boolean;
   createdAt: string;
-}
+};
 
-export interface AuthTokens {
+export type AuthTokens = {
   accessToken: string;
   refreshToken: string;
-}
+};
 
-export interface LoginDto { email: string; password: string; }
-export interface RegisterDto { name: string; email: string; password: string; role?: UserRole; }
+export type LoginDto = { email: string; password: string; };
+export type RegisterDto = { name: string; email: string; password: string; role?: UserRole; };

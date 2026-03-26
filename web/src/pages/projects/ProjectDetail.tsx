@@ -5,7 +5,7 @@ import { milestonesApi } from '../../api/milestones.api';
 import { tasksApi } from '../../api/tasks.api';
 import { expensesApi } from '../../api/expenses.api';
 import { issuesApi } from '../../api/issues.api';
-import { Project } from '../../types/project.types';
+import type { Project } from '../../types/project.types';
 import { useAuthStore } from '../../store/auth.store';
 import api from '../../api/axios';
 

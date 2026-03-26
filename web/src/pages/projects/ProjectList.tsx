@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { projectsApi } from '../../api/projects.api';
-import { Project } from '../../types/project.types';
+import type { Project } from '../../types/project.types';
 
 const statusColor: Record<string, string> = {
   planning: 'bg-gray-100 text-gray-700',

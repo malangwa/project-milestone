@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { projectsApi } from '../../api/projects.api';
 import { useAuthStore } from '../../store/auth.store';
-import { Project } from '../../types/project.types';
+import type { Project } from '../../types/project.types';
 import api from '../../api/axios';
 
 const statusColor: Record<string, string> = {

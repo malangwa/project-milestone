@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { tasksApi } from '../../api/tasks.api';
 import { projectsApi } from '../../api/projects.api';
-import { Task, Project } from '../../types/project.types';
+import type { Task, Project } from '../../types/project.types';
 
 const priorityColor: Record<string, string> = {
   low: 'bg-gray-100 text-gray-600',
