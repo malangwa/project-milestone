@@ -22,12 +22,10 @@ export class ProjectsService {
     if (role === UserRole.ADMIN) {
       return this.projectsRepo.find({ order: { createdAt: 'DESC' } });
     }
-    return this.projectsRepo
-      .createQueryBuilder('project')
-      .leftJoin('project_members', 'pm', 'pm.project_id = project.id AND pm.user_id = :userId', { userId })
-      .where('project.owner_id = :userId OR pm.user_id = :userId', { userId })
-      .orderBy('project.createdAt', 'DESC')
-      .getMany();
+    return this.projectsRepo.find({
+      where: { ownerId: userId },
+      order: { createdAt: 'DESC' },
+    });
   }
 
   async findOne(id: string): Promise<Project> {
