@@ -345,9 +345,9 @@ const ProjectDetail = () => {
                       }`}>{item.status}</span>
                       {canApprove && item.status === 'pending' && (
                         <div className="flex gap-1">
-                          <button onClick={async () => { await expensesApi.approve(item.id); setTab('overview'); setTimeout(() => setTab('expenses'), 50); }}
+                          <button onClick={async () => { await expensesApi.approve(item.id); setData((prev: any[]) => prev.map((e) => e.id === item.id ? { ...e, status: 'approved' } : e)); }}
                             className="text-xs px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700">✓</button>
-                          <button onClick={async () => { await expensesApi.reject(item.id); setTab('overview'); setTimeout(() => setTab('expenses'), 50); }}
+                          <button onClick={async () => { await expensesApi.reject(item.id); setData((prev: any[]) => prev.map((e) => e.id === item.id ? { ...e, status: 'rejected' } : e)); }}
                             className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200">✗</button>
                         </div>
                       )}
