@@ -38,7 +38,8 @@ const TimeTracking = () => {
     if (!selectedProject || !form.hours) return;
     setSaving(true);
     try {
-      await timeTrackingApi.create({ ...form, projectId: selectedProject, hours: parseFloat(form.hours) });
+      const clean = Object.fromEntries(Object.entries(form).filter(([, v]) => v !== ''));
+      await timeTrackingApi.create({ ...clean, projectId: selectedProject, hours: parseFloat(form.hours) });
       const [entriesRes, totalRes] = await Promise.all([
         timeTrackingApi.getByProject(selectedProject),
         timeTrackingApi.getProjectTotal(selectedProject),
