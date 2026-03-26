@@ -13,6 +13,8 @@ const roleColors: Record<string, string> = {
 
 const ROLES = ['admin', 'manager', 'engineer', 'viewer', 'client', 'subcontractor'];
 
+const EMPTY_CREATE = { name: '', email: '', password: '', role: 'engineer' };
+
 const UsersManagement = () => {
   const { user: me } = useAuthStore();
   const [users, setUsers] = useState<any[]>([]);
@@ -21,6 +23,10 @@ const UsersManagement = () => {
   const [editRole, setEditRole] = useState('');
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
+  const [showCreate, setShowCreate] = useState(false);
+  const [createForm, setCreateForm] = useState({ ...EMPTY_CREATE });
+  const [createSaving, setCreateSaving] = useState(false);
+  const [createError, setCreateError] = useState('');
 
   const reload = () => {
     setLoading(true);
@@ -36,6 +42,25 @@ const UsersManagement = () => {
     setEditingId(u.id);
     setEditRole(u.role);
     setMsg('');
+  };
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreateSaving(true);
+    setCreateError('');
+    try {
+      const res = await usersApi.createUser(createForm);
+      const newUser = res.data?.data || res.data;
+      setUsers((prev) => [...prev, newUser]);
+      setShowCreate(false);
+      setCreateForm({ ...EMPTY_CREATE });
+      setMsg('User created successfully.');
+    } catch (err: any) {
+      const m = err.response?.data?.message;
+      setCreateError(Array.isArray(m) ? m.join(', ') : (m || 'Failed to create user'));
+    } finally {
+      setCreateSaving(false);
+    }
   };
 
   const saveEdit = async (id: string) => {
@@ -63,9 +88,17 @@ const UsersManagement = () => {
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Users</h1>
-        <p className="text-gray-500 text-sm mt-1">Manage team members and roles</p>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Users</h1>
+          <p className="text-gray-500 text-sm mt-1">Manage team members and roles</p>
+        </div>
+        {me?.role === 'admin' && (
+          <button onClick={() => { setShowCreate(true); setCreateError(''); setCreateForm({ ...EMPTY_CREATE }); }}
+            className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg">
+            + New User
+          </button>
+        )}
       </div>
 
       {msg && (
@@ -148,6 +181,59 @@ const UsersManagement = () => {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {showCreate && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
+            <div className="flex items-center justify-between p-6 border-b border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-900">Create New User</h2>
+              <button onClick={() => setShowCreate(false)} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+            </div>
+            <form onSubmit={handleCreate} className="p-6 space-y-4">
+              {createError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{createError}</div>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
+                <input required value={createForm.name}
+                  onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="John Doe" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                <input required type="email" value={createForm.email}
+                  onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="john@example.com" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Password *</label>
+                <input required type="password" minLength={6} value={createForm.password}
+                  onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Min 6 characters" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                <select value={createForm.role}
+                  onChange={(e) => setCreateForm({ ...createForm, role: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+                </select>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setShowCreate(false)}
+                  className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 text-sm rounded-lg hover:bg-gray-50">Cancel</button>
+                <button type="submit" disabled={createSaving}
+                  className="flex-1 px-4 py-2.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                  {createSaving ? 'Creating...' : 'Create User'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>
