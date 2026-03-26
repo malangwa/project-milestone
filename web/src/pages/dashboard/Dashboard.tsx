@@ -16,7 +16,7 @@ const statusColor: Record<string, string> = {
 const Dashboard = () => {
   const { user } = useAuthStore();
   const navigate = useNavigate();
-  const canCreate = user?.role === 'admin' || user?.role === 'manager';
+  const canCreate = !!user;
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<any>(null);

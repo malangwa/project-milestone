@@ -45,7 +45,8 @@ const ExpenseList = () => {
     e.preventDefault();
     setSaving(true);
     try {
-      await expensesApi.create({ ...form, amount: Number(form.amount), projectId: selectedProject });
+      const clean = Object.fromEntries(Object.entries(form).filter(([, v]) => v !== ''));
+      await expensesApi.create({ ...clean, amount: Number(form.amount), projectId: selectedProject });
       setShowModal(false);
       setForm({ title: '', amount: '', category: 'other', date: '', notes: '' });
       reload();
