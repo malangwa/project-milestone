@@ -39,7 +39,6 @@ export class AuthService {
   }
 
   async refresh(userId: string, refreshToken: string) {
-    const tokenHash = await bcrypt.hash(refreshToken, 10);
     const stored = await this.refreshTokenRepo.findOne({
       where: { userId, isRevoked: false },
       order: { createdAt: 'DESC' },
