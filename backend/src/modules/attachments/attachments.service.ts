@@ -11,10 +11,13 @@ export class AttachmentsService {
   ) {}
 
   async create(data: any): Promise<Attachment> {
-    return this.repo.save(this.repo.create(data as any) as unknown as Attachment);
+    return this.repo.save(this.repo.create(data) as unknown as Attachment);
   }
 
-  async findByEntity(entityType: string, entityId: string): Promise<Attachment[]> {
+  async findByEntity(
+    entityType: string,
+    entityId: string,
+  ): Promise<Attachment[]> {
     return this.repo.find({
       where: { entityType, entityId },
       order: { createdAt: 'DESC' },

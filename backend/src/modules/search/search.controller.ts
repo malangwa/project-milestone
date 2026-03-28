@@ -13,7 +13,8 @@ export class SearchController {
   @Get()
   @ApiOperation({ summary: 'Cross-entity search' })
   search(@Query('q') q: string) {
-    if (!q || q.trim().length < 2) return { projects: [], milestones: [], tasks: [], issues: [] };
+    if (!q || q.trim().length < 2)
+      return { projects: [], milestones: [], tasks: [], issues: [] };
     return this.searchService.search(q.trim());
   }
 }

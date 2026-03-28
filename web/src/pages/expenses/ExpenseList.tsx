@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { expensesApi } from '../../api/expenses.api';
 import { projectsApi } from '../../api/projects.api';
+import { materialRequestsApi } from '../../api/material-requests.api';
 import { useAuthStore } from '../../store/auth.store';
 
 const statusColor: Record<string, string> = {
@@ -16,6 +17,8 @@ const ExpenseList = () => {
   const canApprove = user?.role === 'admin' || user?.role === 'manager';
   const [projects, setProjects] = useState<any[]>([]);
   const [selectedProject, setSelectedProject] = useState('');
+  const [selectedProjectInfo, setSelectedProjectInfo] = useState<any>(null);
+  const [materialRequests, setMaterialRequests] = useState<any[]>([]);
   const [expenses, setExpenses] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -29,6 +32,16 @@ const ExpenseList = () => {
       if (list.length > 0) setSelectedProject(list[0].id);
     });
   }, []);
+
+  useEffect(() => {
+    if (!selectedProject) return;
+    projectsApi.getOne(selectedProject)
+      .then((res) => setSelectedProjectInfo(res.data?.data || res.data || null))
+      .catch(() => setSelectedProjectInfo(null));
+    materialRequestsApi.getByProject(selectedProject)
+      .then((res) => setMaterialRequests(res.data?.data || res.data || []))
+      .catch(() => setMaterialRequests([]));
+  }, [selectedProject]);
 
   const reload = () => {
     if (!selectedProject) return;
@@ -62,7 +75,14 @@ const ExpenseList = () => {
   };
 
   const total = expenses.filter((e) => e.status === 'approved').reduce((s, e) => s + Number(e.amount), 0);
+  const approvedMaterials = materialRequests
+    .filter((request) => request.status === 'approved')
+    .reduce((sum, request) => sum + Number(request.requestedAmount || 0), 0);
   const pending = expenses.filter((e) => e.status === 'pending').length;
+  const projectBudget = Number(selectedProjectInfo?.budget || 0);
+  const committedBudget = total + approvedMaterials;
+  const remainingOwed = Math.max(0, projectBudget - committedBudget);
+  const overBudget = Math.max(0, committedBudget - projectBudget);
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
@@ -82,6 +102,33 @@ const ExpenseList = () => {
           </button>
         </div>
       </div>
+
+      {selectedProjectInfo && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white border border-gray-200 rounded-2xl p-5">
+            <p className="text-xs text-gray-500">Project Budget</p>
+            <p className="text-xl font-bold text-gray-900 mt-1">${projectBudget.toLocaleString()}</p>
+          </div>
+          <div className="bg-white border border-gray-200 rounded-2xl p-5">
+            <p className="text-xs text-gray-500">Approved Spend</p>
+            <p className="text-xl font-bold text-green-600 mt-1">${total.toLocaleString()}</p>
+          </div>
+          <div className="bg-white border border-gray-200 rounded-2xl p-5">
+            <p className="text-xs text-gray-500">Approved Materials</p>
+            <p className="text-xl font-bold text-blue-600 mt-1">${approvedMaterials.toLocaleString()}</p>
+          </div>
+          <div className="bg-white border border-gray-200 rounded-2xl p-5">
+            <p className="text-xs text-gray-500">Owed</p>
+            <p className="text-xl font-bold text-blue-600 mt-1">${remainingOwed.toLocaleString()}</p>
+          </div>
+          <div className="bg-white border border-gray-200 rounded-2xl p-5 md:col-span-4">
+            <p className="text-xs text-gray-500">Status</p>
+            <p className={`text-xl font-bold mt-1 ${overBudget > 0 ? 'text-red-700' : 'text-green-600'}`}>
+              {overBudget > 0 ? `Budget exceeded by $${overBudget.toLocaleString()}` : 'Within budget'}
+            </p>
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="space-y-2">{[...Array(4)].map((_, i) => <div key={i} className="h-16 bg-gray-100 rounded-xl animate-pulse" />)}</div>

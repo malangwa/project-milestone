@@ -1,25 +1,149 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Task } from './entities/task.entity';
+import { Task, TaskMaterialAssignment } from './entities/task.entity';
+import { StockItem } from '../inventory/entities/stock-item.entity';
+import {
+  StockMovement,
+  StockMovementType,
+} from '../inventory/entities/stock-movement.entity';
 
 @Injectable()
 export class TasksService {
   constructor(
     @InjectRepository(Task)
     private readonly repo: Repository<Task>,
+    @InjectRepository(StockItem)
+    private readonly stockRepo: Repository<StockItem>,
+    @InjectRepository(StockMovement)
+    private readonly movementsRepo: Repository<StockMovement>,
   ) {}
 
-  async create(data: any): Promise<Task> {
-    return this.repo.save(this.repo.create(data as any) as unknown as Task);
+  private normalizeMaterials(
+    materials?: TaskMaterialAssignment[] | null,
+  ): TaskMaterialAssignment[] {
+    return (materials ?? [])
+      .filter(Boolean)
+      .map((material) => ({
+        ...material,
+        name: String(material.name ?? '').trim(),
+        unit: String(material.unit ?? '').trim(),
+        quantity: Number(material.quantity ?? 0),
+        source: (material.source === 'store' ? 'store' : 'manual') as 'manual' | 'store',
+        stockItemId: material.stockItemId ?? null,
+        stockItemName: material.stockItemName ?? null,
+      }))
+      .filter(
+        (material) =>
+          material.name.length > 0 &&
+          material.unit.length > 0 &&
+          material.quantity > 0,
+      );
+  }
+
+  private async applyMaterials(
+    task: Task,
+    materials: TaskMaterialAssignment[],
+    userId: string,
+    reverse = false,
+  ): Promise<TaskMaterialAssignment[]> {
+    const resolved: TaskMaterialAssignment[] = [];
+
+    for (const material of materials) {
+      if (material.source !== 'store') {
+        resolved.push(material);
+        continue;
+      }
+
+      if (!material.stockItemId) {
+        throw new BadRequestException(
+          `Store material "${material.name}" must reference a stock item`,
+        );
+      }
+
+      const stockItem = await this.stockRepo.findOne({
+        where: { id: material.stockItemId, projectId: task.projectId },
+      });
+      if (!stockItem) {
+        throw new NotFoundException(
+          `Stock item not found for material "${material.name}"`,
+        );
+      }
+
+      const quantity = Number(material.quantity);
+      const currentQuantity = Number(stockItem.currentQuantity);
+      if (!reverse && currentQuantity < quantity) {
+        throw new ConflictException(
+          `Not enough stock for "${stockItem.name}". Available: ${currentQuantity}, requested: ${quantity}`,
+        );
+      }
+
+      stockItem.currentQuantity = reverse
+        ? currentQuantity + quantity
+        : currentQuantity - quantity;
+      await this.stockRepo.save(stockItem);
+
+      await this.movementsRepo.save(
+        this.movementsRepo.create({
+          stockItemId: stockItem.id,
+          type: reverse ? StockMovementType.IN : StockMovementType.OUT,
+          quantity,
+          referenceType: reverse
+            ? 'task_assignment_reversal'
+            : 'task_assignment',
+          referenceId: task.id,
+          notes: reverse
+            ? `Reversed task assignment for: ${task.title}`
+            : `Assigned to task: ${task.title}`,
+          createdById: userId,
+        } as any) as any,
+      );
+
+      resolved.push({
+        ...material,
+        stockItemName: material.stockItemName || stockItem.name,
+      });
+    }
+
+    return resolved;
+  }
+
+  async create(data: any, userId?: string): Promise<Task> {
+    const { materials, ...taskData } = data;
+    const task = await this.repo.save(
+      this.repo.create(taskData) as unknown as Task,
+    );
+
+    const normalizedMaterials = this.normalizeMaterials(materials);
+    if (normalizedMaterials.length > 0) {
+      task.materials = await this.applyMaterials(
+        task,
+        normalizedMaterials,
+        userId || task.createdById || '',
+      );
+      await this.repo.save(task);
+    }
+
+    return this.findOne(task.id);
   }
 
   async findByProject(projectId: string): Promise<Task[]> {
-    return this.repo.find({ where: { projectId }, order: { createdAt: 'DESC' } });
+    return this.repo.find({
+      where: { projectId },
+      order: { createdAt: 'DESC' },
+    });
   }
 
   async findByMilestone(milestoneId: string): Promise<Task[]> {
-    return this.repo.find({ where: { milestoneId }, order: { priority: 'DESC' } });
+    return this.repo.find({
+      where: { milestoneId },
+      order: { priority: 'DESC' },
+    });
   }
 
   async findOne(id: string): Promise<Task> {
@@ -28,14 +152,54 @@ export class TasksService {
     return t;
   }
 
-  async update(id: string, data: any): Promise<Task> {
-    await this.findOne(id);
-    await this.repo.update(id, data);
+  async update(id: string, data: any, userId?: string): Promise<Task> {
+    const existing = await this.findOne(id);
+    const hasMaterials = Object.prototype.hasOwnProperty.call(
+      data,
+      'materials',
+    );
+    const { materials, ...taskData } = data;
+
+    await this.repo.update(id, taskData);
+
+    if (hasMaterials) {
+      const previousMaterials = this.normalizeMaterials(existing.materials);
+      if (previousMaterials.length > 0) {
+        await this.applyMaterials(
+          existing,
+          previousMaterials,
+          userId || existing.createdById || '',
+          true,
+        );
+      }
+
+      const updated = await this.findOne(id);
+      const normalizedMaterials = this.normalizeMaterials(materials);
+      updated.materials =
+        normalizedMaterials.length > 0
+          ? await this.applyMaterials(
+              updated,
+              normalizedMaterials,
+              userId || updated.createdById || '',
+            )
+          : [];
+      await this.repo.save(updated);
+    }
+
     return this.findOne(id);
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(id: string, userId?: string): Promise<void> {
     const t = await this.findOne(id);
+    const materials = this.normalizeMaterials(t.materials);
+    if (materials.length > 0) {
+      await this.applyMaterials(
+        t,
+        materials,
+        userId || t.createdById || '',
+        true,
+      );
+    }
     await this.repo.remove(t);
   }
 }

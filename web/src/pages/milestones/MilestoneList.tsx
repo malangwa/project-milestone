@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { milestonesApi } from '../../api/milestones.api';
 import { projectsApi } from '../../api/projects.api';
-import type { Milestone, MilestoneStatus, Project } from '../../types/project.types';
+import type { Milestone, Project } from '../../types/project.types';
 
 const statusColor: Record<string, string> = {
   pending: 'bg-gray-100 text-gray-700',

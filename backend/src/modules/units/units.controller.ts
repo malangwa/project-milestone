@@ -1,4 +1,15 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { UnitsService } from './units.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -13,18 +24,28 @@ export class UnitsController {
   constructor(private readonly unitsService: UnitsService) {}
 
   @Post()
-  create(@Body() dto: CreateUnitDto) { return this.unitsService.create(dto); }
+  create(@Body() dto: CreateUnitDto) {
+    return this.unitsService.create(dto);
+  }
 
   @Get()
-  findAll() { return this.unitsService.findAll(); }
+  findAll() {
+    return this.unitsService.findAll();
+  }
 
   @Get(':id')
-  findOne(@Param('id') id: string) { return this.unitsService.findOne(id); }
+  findOne(@Param('id') id: string) {
+    return this.unitsService.findOne(id);
+  }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateUnitDto) { return this.unitsService.update(id, dto); }
+  update(@Param('id') id: string, @Body() dto: UpdateUnitDto) {
+    return this.unitsService.update(id, dto);
+  }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param('id') id: string) { return this.unitsService.remove(id); }
+  remove(@Param('id') id: string) {
+    return this.unitsService.remove(id);
+  }
 }

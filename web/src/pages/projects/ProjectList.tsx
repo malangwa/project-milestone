@@ -18,7 +18,7 @@ const ProjectList = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({ name: '', description: '', industry: 'other', status: 'planning', budget: '', startDate: '', endDate: '' });
+  const [form, setForm] = useState({ name: '', description: '', location: '', industry: 'other', status: 'planning', budget: '', startDate: '', endDate: '' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -56,11 +56,12 @@ const ProjectList = () => {
       await projectsApi.create({
         ...form,
         budget: Number(form.budget) || 0,
+        location: form.location || undefined,
         startDate: form.startDate || undefined,
         endDate: form.endDate || undefined,
       });
       setShowModal(false);
-      setForm({ name: '', description: '', industry: 'other', status: 'planning', budget: '', startDate: '', endDate: '' });
+      setForm({ name: '', description: '', location: '', industry: 'other', status: 'planning', budget: '', startDate: '', endDate: '' });
       load();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to create project');
@@ -110,8 +111,11 @@ const ProjectList = () => {
             <div key={p.id} className="relative group">
               <Link to={`/projects/${p.id}`}
                 className="block bg-white border border-gray-200 rounded-xl p-5 hover:border-blue-300 hover:shadow-sm transition-all">
-                <div className="flex items-start justify-between mb-3">
-                  <h3 className="font-semibold text-gray-900 leading-tight pr-2">{p.name}</h3>
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div className="min-w-0">
+                    <h3 className="font-semibold text-gray-900 leading-tight pr-2">{p.name}</h3>
+                    {p.location && <p className="text-xs text-gray-400 mt-0.5">{p.location}</p>}
+                  </div>
                   <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize shrink-0 ${statusColor[p.status]}`}>
                     {p.status.replace('_', ' ')}
                   </span>
@@ -152,6 +156,12 @@ const ProjectList = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
                 <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
                   rows={3} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" placeholder="Brief project description" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                <input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g. Lagos, Site A" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>

@@ -1,4 +1,15 @@
-import { Controller, Get, Post, Body, Param, Delete, UseGuards, HttpCode, HttpStatus, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Delete,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+  Query,
+} from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CommentsService } from './comments.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -22,7 +33,10 @@ export class CommentsController {
 
   @Get()
   @ApiOperation({ summary: 'Get comments for an entity' })
-  findByEntity(@Query('entityType') entityType: CommentEntityType, @Query('entityId') entityId: string) {
+  findByEntity(
+    @Query('entityType') entityType: CommentEntityType,
+    @Query('entityId') entityId: string,
+  ) {
     return this.commentsService.findByEntity(entityType, entityId);
   }
 

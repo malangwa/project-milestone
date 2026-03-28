@@ -1,4 +1,15 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { TimeTrackingService } from './time-tracking.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -39,12 +50,18 @@ export class TimeTrackingController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) { return this.timeTrackingService.findOne(id); }
+  findOne(@Param('id') id: string) {
+    return this.timeTrackingService.findOne(id);
+  }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateTimeEntryDto) { return this.timeTrackingService.update(id, dto); }
+  update(@Param('id') id: string, @Body() dto: UpdateTimeEntryDto) {
+    return this.timeTrackingService.update(id, dto);
+  }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param('id') id: string) { return this.timeTrackingService.remove(id); }
+  remove(@Param('id') id: string) {
+    return this.timeTrackingService.remove(id);
+  }
 }

@@ -5,12 +5,17 @@ import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
 
 @Injectable()
-export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh') {
+export class JwtRefreshStrategy extends PassportStrategy(
+  Strategy,
+  'jwt-refresh',
+) {
   constructor(private readonly configService: ConfigService) {
     super({
       jwtFromRequest: ExtractJwt.fromBodyField('refreshToken'),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('jwt.refreshSecret') ?? 'fallback-refresh-secret',
+      secretOrKey:
+        configService.get<string>('jwt.refreshSecret') ??
+        'fallback-refresh-secret',
       passReqToCallback: true,
     });
   }

@@ -1,6 +1,11 @@
 import {
-  Entity, PrimaryGeneratedColumn, Column,
-  CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn,
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
 import { Project } from '../../projects/entities/project.entity';
 import { User } from '../../users/entities/user.entity';
@@ -37,7 +42,11 @@ export class Expense {
   @Column({ type: 'decimal', precision: 15, scale: 2 })
   amount: number;
 
-  @Column({ type: 'enum', enum: ExpenseCategory, default: ExpenseCategory.OTHER })
+  @Column({
+    type: 'enum',
+    enum: ExpenseCategory,
+    default: ExpenseCategory.OTHER,
+  })
   category: ExpenseCategory;
 
   @Column({ type: 'enum', enum: ExpenseStatus, default: ExpenseStatus.PENDING })

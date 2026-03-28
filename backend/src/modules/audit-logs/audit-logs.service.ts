@@ -22,7 +22,10 @@ export class AuditLogsService {
     });
   }
 
-  async findByEntity(entityType: string, entityId: string): Promise<AuditLog[]> {
+  async findByEntity(
+    entityType: string,
+    entityId: string,
+  ): Promise<AuditLog[]> {
     return this.repo.find({
       where: { entityType, entityId },
       relations: ['user'],

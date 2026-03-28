@@ -1,4 +1,6 @@
-import { createContext, useContext, ReactNode } from 'react';
+/* eslint-disable react-refresh/only-export-components */
+import { createContext, useContext } from 'react';
+import type { ReactNode } from 'react';
 import { useAuthStore } from '../store/auth.store';
 
 const AuthContext = createContext<ReturnType<typeof useAuthStore> | null>(null);

@@ -1,17 +1,42 @@
-# project_milestone
+# Mobile App
 
-A new Flutter project.
+Flutter Android client for the Project Milestone & Control System.
 
-## Getting Started
+## Implemented
 
-This project is a starting point for a Flutter application.
+- Login with JWT auth against the existing backend
+- Secure local token storage with automatic token refresh
+- Dashboard with overview metrics and recent projects
+- Projects list and project detail view
+- Project task browser
+- Project report viewer
+- Global store / inventory viewer
+- Settings screen with current environment details
 
-A few resources to get you started if this is your first Flutter project:
+## Run
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+```bash
+flutter pub get
+flutter run
+```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## API Base URL
+
+By default the app uses:
+
+- Android emulator: `http://10.0.2.2:3000/api/v1`
+- other platforms: `http://localhost:3000/api/v1`
+
+Override it when needed:
+
+```bash
+flutter run --dart-define=API_BASE_URL=http://YOUR_HOST:3000/api/v1
+```
+
+## Build APK
+
+```bash
+flutter build apk --debug
+```
+
+For a physical Android device, make sure the backend is reachable on your LAN or pass a `--dart-define` base URL.

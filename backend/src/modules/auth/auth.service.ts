@@ -1,4 +1,8 @@
-import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  BadRequestException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -55,19 +59,27 @@ export class AuthService {
     return tokens;
   }
 
-  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ) {
     const foundUser = await this.usersService.findById(userId);
     const user = await this.usersService.findByEmail(foundUser.email);
     if (!user) throw new UnauthorizedException('User not found');
     const isMatch = await bcrypt.compare(currentPassword, user.passwordHash);
-    if (!isMatch) throw new UnauthorizedException('Current password is incorrect');
+    if (!isMatch)
+      throw new UnauthorizedException('Current password is incorrect');
     const newHash = await bcrypt.hash(newPassword, 10);
     await this.usersService.update(userId, { passwordHash: newHash } as any);
     return { message: 'Password changed successfully' };
   }
 
   async logout(userId: string) {
-    await this.refreshTokenRepo.update({ userId, isRevoked: false }, { isRevoked: true });
+    await this.refreshTokenRepo.update(
+      { userId, isRevoked: false },
+      { isRevoked: true },
+    );
     return { message: 'Logged out successfully' };
   }
 
@@ -90,7 +102,11 @@ export class AuthService {
     const tokenHash = await bcrypt.hash(token, 10);
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
-    const entity = this.refreshTokenRepo.create({ userId, tokenHash, expiresAt });
+    const entity = this.refreshTokenRepo.create({
+      userId,
+      tokenHash,
+      expiresAt,
+    });
     return this.refreshTokenRepo.save(entity);
   }
 }

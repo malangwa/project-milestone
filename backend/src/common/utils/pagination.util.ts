@@ -10,7 +10,12 @@ export function paginate(query: PaginationQuery) {
   return { skip, take: limit, page, limit };
 }
 
-export function paginatedResponse<T>(data: T[], total: number, page: number, limit: number) {
+export function paginatedResponse<T>(
+  data: T[],
+  total: number,
+  page: number,
+  limit: number,
+) {
   return {
     items: data,
     pagination: {

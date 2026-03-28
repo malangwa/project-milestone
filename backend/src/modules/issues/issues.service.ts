@@ -11,11 +11,14 @@ export class IssuesService {
   ) {}
 
   async create(data: any): Promise<Issue> {
-    return this.repo.save(this.repo.create(data as any) as unknown as Issue);
+    return this.repo.save(this.repo.create(data) as unknown as Issue);
   }
 
   async findByProject(projectId: string): Promise<Issue[]> {
-    return this.repo.find({ where: { projectId }, order: { createdAt: 'DESC' } });
+    return this.repo.find({
+      where: { projectId },
+      order: { createdAt: 'DESC' },
+    });
   }
 
   async findOne(id: string): Promise<Issue> {

@@ -4,8 +4,13 @@ import { projectsApi } from '../../api/projects.api';
 import { milestonesApi } from '../../api/milestones.api';
 import { tasksApi } from '../../api/tasks.api';
 import { expensesApi } from '../../api/expenses.api';
+import { materialRequestsApi } from '../../api/material-requests.api';
 import { issuesApi } from '../../api/issues.api';
-import type { Project } from '../../types/project.types';
+import { resourcesApi } from '../../api/resources.api';
+import { inventoryApi } from '../../api/procurement.api';
+import { ProcurementPanel } from '../../components/projects/ProcurementPanel';
+import type { MaterialRequest, Project, ProjectMember } from '../../types/project.types';
+import type { StockItem } from '../../types/procurement.types';
 import { useAuthStore } from '../../store/auth.store';
 import api from '../../api/axios';
 
@@ -17,12 +22,29 @@ const statusColor: Record<string, string> = {
   cancelled: 'bg-red-100 text-red-700',
 };
 
-type Tab = 'overview' | 'milestones' | 'tasks' | 'expenses' | 'issues' | 'comments' | 'activity';
+type Tab = 'overview' | 'members' | 'milestones' | 'tasks' | 'expenses' | 'materials' | 'resources' | 'procurement' | 'issues' | 'comments' | 'activity';
+
+type MaterialRequestFormItem = {
+  name: string;
+  quantity: string;
+  unit: string;
+  estimatedCost: string;
+  notes: string;
+};
+
+type MaterialRequestFormState = {
+  title: string;
+  purpose: string;
+  notes: string;
+  items: MaterialRequestFormItem[];
+};
 
 const ProjectDetail = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuthStore();
   const [project, setProject] = useState<Project | null>(null);
+  const [projectExpenses, setProjectExpenses] = useState<any[]>([]);
+  const [projectMaterialRequests, setProjectMaterialRequests] = useState<MaterialRequest[]>([]);
   const isOwner = !!user && !!project && user.id === project.ownerId;
   const isAdminOrManager = user?.role === 'admin' || user?.role === 'manager';
   const canEdit = isAdminOrManager || isOwner;
@@ -31,17 +53,33 @@ const ProjectDetail = () => {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [tabLoading, setTabLoading] = useState(false);
+  const [memberForm, setMemberForm] = useState({ email: '', role: 'engineer' });
+  const [memberSaving, setMemberSaving] = useState(false);
+  const [memberError, setMemberError] = useState('');
+  const [materialForm, setMaterialForm] = useState<MaterialRequestFormState>({
+    title: '',
+    purpose: '',
+    notes: '',
+    items: [{ name: '', quantity: '1', unit: '', estimatedCost: '', notes: '' }],
+  });
+  const [materialSaving, setMaterialSaving] = useState(false);
+  const [materialError, setMaterialError] = useState('');
+  const [selectedMaterialRequestId, setSelectedMaterialRequestId] = useState<string | null>(null);
   const [comments, setComments] = useState<any[]>([]);
   const [commentText, setCommentText] = useState('');
   const [commentSaving, setCommentSaving] = useState(false);
   const [activities, setActivities] = useState<any[]>([]);
   const [showEdit, setShowEdit] = useState(false);
-  const [editForm, setEditForm] = useState({ name: '', description: '', status: '', industry: '', budget: '', startDate: '', endDate: '' });
+  const [editForm, setEditForm] = useState({ name: '', description: '', location: '', status: '', industry: '', budget: '', startDate: '', endDate: '' });
   const [editSaving, setEditSaving] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [createForm, setCreateForm] = useState<Record<string, string>>({});
   const [createSaving, setCreateSaving] = useState(false);
   const [createError, setCreateError] = useState('');
+  const [taskMembers, setTaskMembers] = useState<ProjectMember[]>([]);
+  const [taskStockItems, setTaskStockItems] = useState<StockItem[]>([]);
+  const [taskAssigneeId, setTaskAssigneeId] = useState('');
+  const [taskMaterials, setTaskMaterials] = useState([{ name: '', unit: '', quantity: '', source: 'manual', stockItemId: '' }]);
 
   useEffect(() => {
     if (!id) return;
@@ -49,16 +87,46 @@ const ProjectDetail = () => {
   }, [id]);
 
   useEffect(() => {
-    if (!id || tab === 'overview' || tab === 'comments' || tab === 'activity') return;
+    if (!id) return;
+    expensesApi.getByProject(id)
+      .then((res) => setProjectExpenses(res.data?.data || res.data || []))
+      .catch(() => setProjectExpenses([]));
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    materialRequestsApi.getByProject(id)
+      .then((res) => setProjectMaterialRequests(res.data?.data || res.data || []))
+      .catch(() => setProjectMaterialRequests([]));
+  }, [id]);
+
+  useEffect(() => {
+    if (!id || tab === 'overview' || tab === 'comments' || tab === 'activity' || tab === 'procurement') return;
     setTabLoading(true);
     const fetchers: Record<string, () => Promise<any>> = {
       milestones: () => milestonesApi.getByProject(id),
-      tasks: () => tasksApi.getByProject(id),
+      tasks: () => Promise.all([
+        tasksApi.getByProject(id),
+        projectsApi.getMembers(id),
+        inventoryApi.getByProject(id),
+      ]),
       expenses: () => expensesApi.getByProject(id),
+      materials: () => materialRequestsApi.getByProject(id),
+      resources: () => resourcesApi.getByProject(id),
       issues: () => issuesApi.getByProject(id),
+      members: () => projectsApi.getMembers(id),
     };
     fetchers[tab]()
-      .then((res) => setData(res.data?.data || res.data || []))
+      .then((res) => {
+        if (tab === 'tasks' && Array.isArray(res)) {
+          const [tasksRes, membersRes, stockRes] = res;
+          setData(tasksRes.data?.data || tasksRes.data || []);
+          setTaskMembers(membersRes.data?.data || membersRes.data || []);
+          setTaskStockItems(stockRes.data?.data || stockRes.data || []);
+          return;
+        }
+        setData(res.data?.data || res.data || []);
+      })
       .catch(() => setData([]))
       .finally(() => setTabLoading(false));
   }, [tab, id]);
@@ -97,9 +165,13 @@ const ProjectDetail = () => {
 
   const tabs: { key: Tab; label: string }[] = [
     { key: 'overview', label: 'Overview' },
+    { key: 'members', label: 'Members' },
     { key: 'milestones', label: 'Milestones' },
     { key: 'tasks', label: 'Tasks' },
     { key: 'expenses', label: 'Expenses' },
+    { key: 'materials', label: 'Materials' },
+    { key: 'resources', label: 'Engineer Tools' },
+    { key: 'procurement', label: 'Procurement' },
     { key: 'issues', label: 'Issues' },
     { key: 'comments', label: `Comments${comments.length > 0 ? ` (${comments.length})` : ''}` },
     { key: 'activity', label: 'Activity' },
@@ -110,6 +182,7 @@ const ProjectDetail = () => {
     setEditForm({
       name: project.name,
       description: project.description || '',
+      location: project.location || '',
       status: project.status,
       industry: project.industry,
       budget: project.budget ? String(project.budget) : '',
@@ -127,6 +200,7 @@ const ProjectDetail = () => {
       const res = await projectsApi.update(id, {
         ...editForm,
         budget: editForm.budget ? Number(editForm.budget) : undefined,
+        location: editForm.location.trim() || undefined,
         startDate: editForm.startDate || undefined,
         endDate: editForm.endDate || undefined,
       });
@@ -144,12 +218,147 @@ const ProjectDetail = () => {
 
   const openCreate = () => {
     setCreateForm(CREATE_DEFAULTS[tab] ?? {});
+    if (tab === 'tasks') {
+      setTaskAssigneeId('');
+      setTaskMaterials([{ name: '', unit: '', quantity: '', source: 'manual', stockItemId: '' }]);
+    }
     setCreateError('');
     setShowCreate(true);
   };
 
+  const updateTaskMaterial = (index: number, patch: Partial<(typeof taskMaterials)[number]>) => {
+    setTaskMaterials((prev) => prev.map((material, currentIndex) => (currentIndex === index ? { ...material, ...patch } : material)));
+  };
+
+  const addTaskMaterial = () => {
+    setTaskMaterials((prev) => [...prev, { name: '', unit: '', quantity: '', source: 'manual', stockItemId: '' }]);
+  };
+
+  const removeTaskMaterial = (index: number) => {
+    setTaskMaterials((prev) => prev.length === 1 ? prev : prev.filter((_, currentIndex) => currentIndex !== index));
+  };
+
+  const projectBudget = Number(project?.budget || 0);
+  const givenSoFar = projectExpenses
+    .filter((expense) => expense.status === 'approved')
+    .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+  const approvedMaterialCommitment = projectMaterialRequests
+    .filter((request) => request.status === 'approved')
+    .reduce((sum, request) => sum + Number(request.requestedAmount || 0), 0);
+  const totalCommitted = givenSoFar + approvedMaterialCommitment;
+  const remainingOwed = Math.max(0, projectBudget - totalCommitted);
+  const overBudget = Math.max(0, totalCommitted - projectBudget);
+
+  const money = (value: number | string | null | undefined) => `$${Number(value ?? 0).toLocaleString()}`;
+
   const stripEmpty = (obj: Record<string, string>) =>
     Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== '' && v !== undefined));
+
+  const handleAddMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!id) return;
+    setMemberSaving(true);
+    setMemberError('');
+    try {
+      await projectsApi.addMember(id, memberForm);
+      const res = await projectsApi.getMembers(id);
+      setData(res.data?.data || res.data || []);
+      setMemberForm({ email: '', role: 'engineer' });
+    } catch (err: any) {
+      const msg = err.response?.data?.message;
+      setMemberError(Array.isArray(msg) ? msg.join(', ') : (msg || 'Failed to add member'));
+    } finally {
+      setMemberSaving(false);
+    }
+  };
+
+  const handleRemoveMember = async (memberUserId: string) => {
+    if (!id) return;
+    await projectsApi.removeMember(id, memberUserId);
+    const res = await projectsApi.getMembers(id);
+    setData(res.data?.data || res.data || []);
+  };
+
+  const resetMaterialForm = () => {
+    setMaterialForm({
+      title: '',
+      purpose: '',
+      notes: '',
+      items: [{ name: '', quantity: '1', unit: '', estimatedCost: '', notes: '' }],
+    });
+  };
+
+  const addMaterialItem = () => {
+    setMaterialForm((prev) => ({
+      ...prev,
+      items: [...prev.items, { name: '', quantity: '1', unit: '', estimatedCost: '', notes: '' }],
+    }));
+  };
+
+  const removeMaterialItem = (index: number) => {
+    setMaterialForm((prev) => {
+      if (prev.items.length === 1) return prev;
+      return { ...prev, items: prev.items.filter((_, itemIndex) => itemIndex !== index) };
+    });
+  };
+
+  const updateMaterialItem = (index: number, field: keyof MaterialRequestFormItem, value: string) => {
+    setMaterialForm((prev) => ({
+      ...prev,
+      items: prev.items.map((item, itemIndex) => (itemIndex === index ? { ...item, [field]: value } : item)),
+    }));
+  };
+
+  const refreshMaterialRequests = async () => {
+    if (!id) return;
+    const res = await materialRequestsApi.getByProject(id);
+    const requests = res.data?.data || res.data || [];
+    setProjectMaterialRequests(requests);
+    setData(requests);
+  };
+
+  const handleCreateMaterialRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!id) return;
+    setMaterialSaving(true);
+    setMaterialError('');
+    try {
+      const items = materialForm.items.map((item) => ({
+        name: item.name.trim(),
+        quantity: Number(item.quantity),
+        unit: item.unit.trim(),
+        estimatedCost: Number(item.estimatedCost),
+        notes: item.notes.trim() || undefined,
+      }));
+      await materialRequestsApi.create(id, {
+        title: materialForm.title.trim(),
+        purpose: materialForm.purpose.trim() || undefined,
+        notes: materialForm.notes.trim() || undefined,
+        items,
+      });
+      resetMaterialForm();
+      await refreshMaterialRequests();
+    } catch (err: any) {
+      const msg = err.response?.data?.message;
+      setMaterialError(Array.isArray(msg) ? msg.join(', ') : (msg || 'Failed to create material request'));
+    } finally {
+      setMaterialSaving(false);
+    }
+  };
+
+  const handleMaterialRequestAction = async (requestId: string, action: 'approve' | 'reject') => {
+    if (action === 'approve') {
+      await materialRequestsApi.approve(requestId);
+    } else {
+      await materialRequestsApi.reject(requestId);
+    }
+    await refreshMaterialRequests();
+  };
+
+  const openProcurementFromRequest = (requestId: string) => {
+    setSelectedMaterialRequestId(requestId);
+    setTab('procurement');
+  };
 
   const handleQuickCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -158,7 +367,22 @@ const ProjectDetail = () => {
     setCreateError('');
     try {
       const clean = stripEmpty(createForm);
-      if (tab === 'tasks') await tasksApi.create({ ...clean, projectId: id });
+      if (tab === 'tasks') {
+        const materials = taskMaterials
+          .filter((material) => material.name.trim() && material.unit.trim() && Number(material.quantity) > 0)
+          .map((material) => ({
+            name: material.name.trim(),
+            unit: material.unit.trim(),
+            quantity: Number(material.quantity),
+            source: material.source,
+            stockItemId: material.source === 'store' ? material.stockItemId || undefined : undefined,
+            stockItemName: material.source === 'store'
+              ? taskStockItems.find((item) => item.id === material.stockItemId)?.name
+              : undefined,
+          }));
+
+        await tasksApi.create({ ...clean, projectId: id, assignedToId: taskAssigneeId || undefined, materials });
+      }
       if (tab === 'milestones') await milestonesApi.create({ ...clean, projectId: id });
       if (tab === 'issues') await issuesApi.create({ ...clean, projectId: id });
       if (tab === 'expenses') await expensesApi.create({ ...clean, amount: Number(clean.amount), projectId: id });
@@ -200,10 +424,20 @@ const ProjectDetail = () => {
           {project.description && <p className="text-gray-500 text-sm mt-1">{project.description}</p>}
           <div className="flex items-center gap-4 mt-2 text-xs text-gray-400">
             <span className="capitalize">{project.industry}</span>
-            {project.budget > 0 && <span>Budget: ${Number(project.budget).toLocaleString()}</span>}
+            {project.location && <span>{project.location}</span>}
+            {project.budget > 0 && <span>Budget: {money(projectBudget)}</span>}
+            <span>Given: {money(givenSoFar)}</span>
+            <span>Materials: {money(approvedMaterialCommitment)}</span>
+            <span>Owed: {money(remainingOwed)}</span>
             {project.startDate && <span>Start: {new Date(project.startDate).toLocaleDateString()}</span>}
             {project.endDate && <span>End: {new Date(project.endDate).toLocaleDateString()}</span>}
           </div>
+          {overBudget > 0 && (
+            <div className="mt-4 inline-flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+              <span className="font-semibold">Budget exceeded</span>
+              <span>by {money(overBudget)}</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -229,15 +463,95 @@ const ProjectDetail = () => {
       {tab === 'overview' && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[{ label: 'Industry', value: project.industry },
+            { label: 'Location', value: project.location || 'N/A' },
             { label: 'Status', value: project.status.replace('_', ' ') },
-            { label: 'Budget', value: project.budget > 0 ? `$${Number(project.budget).toLocaleString()}` : 'N/A' },
+            { label: 'Budget', value: project.budget > 0 ? money(projectBudget) : 'N/A' },
+            { label: 'Given So Far', value: money(givenSoFar) },
+            { label: 'Approved Materials', value: money(approvedMaterialCommitment) },
+            { label: 'Owed', value: money(remainingOwed) },
             { label: 'Created', value: new Date(project.createdAt).toLocaleDateString() },
           ].map(({ label, value }) => (
             <div key={label} className="bg-white border border-gray-200 rounded-xl p-4">
               <p className="text-xs text-gray-500">{label}</p>
-              <p className="font-semibold text-gray-900 mt-1 capitalize">{value}</p>
+              <p className={`font-semibold text-gray-900 mt-1 ${typeof value === 'string' && value === 'N/A' ? '' : 'capitalize'}`}>{value}</p>
             </div>
           ))}
+          {overBudget > 0 && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4 md:col-span-4">
+              <p className="text-xs text-red-600">Over budget</p>
+              <p className="font-semibold text-red-700 mt-1">{money(overBudget)} spent above the budget</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === 'members' && (
+        <div className="space-y-4">
+          {canEdit && (
+            <div className="bg-white border border-gray-200 rounded-xl p-4">
+              <form onSubmit={handleAddMember} className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Invite by email</label>
+                  <input
+                    required
+                    type="email"
+                    value={memberForm.email}
+                    onChange={(e) => setMemberForm({ ...memberForm, email: e.target.value })}
+                    placeholder="user@example.com"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                  <select
+                    value={memberForm.role}
+                    onChange={(e) => setMemberForm({ ...memberForm, role: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {['manager', 'engineer', 'viewer', 'client', 'subcontractor'].map((r) => (
+                      <option key={r} value={r}>{r}</option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  type="submit"
+                  disabled={memberSaving}
+                  className="px-4 py-2.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {memberSaving ? 'Adding...' : 'Add Member'}
+                </button>
+              </form>
+              {memberError && <div className="mt-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-4 py-2">{memberError}</div>}
+            </div>
+          )}
+
+          {tabLoading ? (
+            <div className="space-y-2">{[...Array(4)].map((_, i) => <div key={i} className="h-14 bg-gray-100 rounded-xl animate-pulse" />)}</div>
+          ) : data.length === 0 ? (
+            <div className="text-center py-16 text-gray-400">No members added to this project yet.</div>
+          ) : (
+            <div className="space-y-2">
+              {data.map((item: ProjectMember) => (
+                <div key={item.id} className="bg-white border border-gray-200 rounded-xl px-5 py-4 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="font-medium text-gray-900">{item.user?.name ?? item.user?.email ?? item.userId}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{item.user?.email ?? ''}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full capitalize">{item.role}</span>
+                    {canEdit && (
+                      <button
+                        onClick={() => handleRemoveMember(item.userId)}
+                        className="text-xs text-red-600 hover:text-red-700 font-medium"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -309,7 +623,283 @@ const ProjectDetail = () => {
         </div>
       )}
 
-      {tab !== 'overview' && tab !== 'comments' && tab !== 'activity' && (
+      {tab === 'materials' && (
+        <div className="space-y-4">
+          <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-4">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Create Material Request</h2>
+              <p className="text-sm text-gray-500 mt-1">Build a material list and send it for fund approval.</p>
+            </div>
+
+            {materialError && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                {materialError}
+              </div>
+            )}
+
+            <form onSubmit={handleCreateMaterialRequest} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+                  <input
+                    required
+                    value={materialForm.title}
+                    onChange={(e) => setMaterialForm({ ...materialForm, title: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="e.g. Cement and steel for foundation"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Purpose</label>
+                  <input
+                    value={materialForm.purpose}
+                    onChange={(e) => setMaterialForm({ ...materialForm, purpose: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Short reason for the request"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                <textarea
+                  value={materialForm.notes}
+                  onChange={(e) => setMaterialForm({ ...materialForm, notes: e.target.value })}
+                  rows={2}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  placeholder="Optional context for approvers"
+                />
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="block text-sm font-medium text-gray-700">Material List</label>
+                  <button
+                    type="button"
+                    onClick={addMaterialItem}
+                    className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                  >
+                    + Add item
+                  </button>
+                </div>
+
+                {materialForm.items.map((item, index) => (
+                  <div key={`${index}-${item.name}`} className="border border-gray-200 rounded-xl p-4 space-y-3 bg-gray-50/50">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Item {index + 1}</p>
+                      {materialForm.items.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeMaterialItem(index)}
+                          className="text-xs text-red-600 hover:text-red-700"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                      <input
+                        required
+                        value={item.name}
+                        onChange={(e) => updateMaterialItem(index, 'name', e.target.value)}
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Item name"
+                      />
+                      <input
+                        required
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        value={item.quantity}
+                        onChange={(e) => updateMaterialItem(index, 'quantity', e.target.value)}
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Qty"
+                      />
+                      <input
+                        required
+                        value={item.unit}
+                        onChange={(e) => updateMaterialItem(index, 'unit', e.target.value)}
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Unit"
+                      />
+                      <input
+                        required
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={item.estimatedCost}
+                        onChange={(e) => updateMaterialItem(index, 'estimatedCost', e.target.value)}
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Estimated cost"
+                      />
+                    </div>
+
+                    <textarea
+                      value={item.notes}
+                      onChange={(e) => updateMaterialItem(index, 'notes', e.target.value)}
+                      rows={2}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                      placeholder="Item notes"
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  disabled={materialSaving}
+                  className="px-4 py-2.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {materialSaving ? 'Submitting...' : 'Submit Request'}
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {tabLoading ? (
+            <div className="space-y-2">{[...Array(4)].map((_, i) => <div key={i} className="h-16 bg-gray-100 rounded-xl animate-pulse" />)}</div>
+          ) : data.length === 0 ? (
+            <div className="text-center py-16 text-gray-400">No material requests yet.</div>
+          ) : (
+            <div className="space-y-3">
+              {data.map((request: MaterialRequest) => {
+                const requestItems = Array.isArray(request.items) ? request.items : [];
+
+                return (
+                <div key={request.id} className="bg-white border border-gray-200 rounded-xl px-5 py-4 space-y-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-medium text-gray-900">{request.title}</p>
+                        <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${
+                          request.status === 'approved'
+                            ? 'bg-green-100 text-green-700'
+                            : request.status === 'rejected'
+                              ? 'bg-red-100 text-red-700'
+                              : 'bg-yellow-100 text-yellow-700'
+                        }`}>
+                          {request.status}
+                        </span>
+                      </div>
+                      {request.purpose && <p className="text-sm text-gray-500 mt-1">{request.purpose}</p>}
+                      <p className="text-xs text-gray-400 mt-1">
+                        Requested by {request.requestedBy?.name ?? request.requestedById} · {new Date(request.createdAt).toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold text-gray-900">${Number(request.requestedAmount).toLocaleString()}</p>
+                      <p className="text-xs text-gray-400">Total requested</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    {requestItems.map((item) => (
+                      <div key={item.id ?? `${item.name}-${item.unit}`} className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 bg-gray-50 px-4 py-3">
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">{item.name}</p>
+                          <p className="text-xs text-gray-500">{item.quantity} {item.unit}</p>
+                          {item.notes && <p className="text-xs text-gray-400 mt-1">{item.notes}</p>}
+                        </div>
+                        <p className="text-sm font-semibold text-gray-900">${Number(item.estimatedCost).toLocaleString()}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {canEdit && request.status === 'approved' && (
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => openProcurementFromRequest(request.id)}
+                        className="px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+                      >
+                        Create Purchase Order
+                      </button>
+                    </div>
+                  )}
+
+                  {canApprove && request.status === 'pending' && (
+                    <div className="flex gap-2 justify-end">
+                      <button
+                        type="button"
+                        onClick={() => handleMaterialRequestAction(request.id, 'reject')}
+                        className="px-3 py-1.5 text-xs font-medium rounded-lg bg-red-100 text-red-700 hover:bg-red-200"
+                      >
+                        Reject
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleMaterialRequestAction(request.id, 'approve')}
+                        className="px-3 py-1.5 text-xs font-medium rounded-lg bg-green-600 text-white hover:bg-green-700"
+                      >
+                        Approve
+                      </button>
+                    </div>
+                  )}
+                </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === 'resources' && (
+        <div className="space-y-4">
+          <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Engineer Tools / Resources</h2>
+              <p className="text-sm text-gray-500 mt-1">Project personnel, equipment, and materials used on this project.</p>
+            </div>
+            <Link to="/resources" className="text-sm font-medium text-blue-600 hover:text-blue-700">
+              Open full resources page
+            </Link>
+          </div>
+
+          {tabLoading ? (
+            <div className="space-y-2">{[...Array(4)].map((_, i) => <div key={i} className="h-14 bg-gray-100 rounded-xl animate-pulse" />)}</div>
+          ) : data.length === 0 ? (
+            <div className="text-center py-16 text-gray-400">No resources assigned to this project yet.</div>
+          ) : (
+            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className="text-left px-5 py-3 font-semibold text-gray-600">Name</th>
+                    <th className="text-left px-5 py-3 font-semibold text-gray-600">Type</th>
+                    <th className="text-left px-5 py-3 font-semibold text-gray-600">Role</th>
+                    <th className="text-right px-5 py-3 font-semibold text-gray-600">Qty</th>
+                    <th className="text-right px-5 py-3 font-semibold text-gray-600">Cost/Unit</th>
+                    <th className="text-right px-5 py-3 font-semibold text-gray-600">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.map((item: any) => {
+                    const total = (item.costPerUnit ?? 0) * (item.quantity ?? 1);
+                    return (
+                      <tr key={item.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                        <td className="px-5 py-3.5 font-medium text-gray-900">{item.name}</td>
+                        <td className="px-5 py-3.5 text-gray-500 capitalize">{item.type}</td>
+                        <td className="px-5 py-3.5 text-gray-500">{item.role || '—'}</td>
+                        <td className="px-5 py-3.5 text-right text-gray-700">{item.quantity ?? 1} {item.unit || ''}</td>
+                        <td className="px-5 py-3.5 text-right text-gray-700">{item.costPerUnit != null ? `$${Number(item.costPerUnit).toLocaleString()}` : '—'}</td>
+                        <td className="px-5 py-3.5 text-right font-semibold text-gray-900">${Number(total).toLocaleString()}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === 'procurement' && id && (
+        <ProcurementPanel projectId={id} canApprove={canApprove} canEdit={canEdit} initialMaterialRequestId={selectedMaterialRequestId} />
+      )}
+
+      {tab !== 'overview' && tab !== 'members' && tab !== 'materials' && tab !== 'resources' && tab !== 'procurement' && tab !== 'comments' && tab !== 'activity' && (
         tabLoading ? (
           <div className="space-y-2">{[...Array(4)].map((_, i) => <div key={i} className="h-14 bg-gray-100 rounded-xl animate-pulse" />)}</div>
         ) : data.length === 0 ? (
@@ -337,6 +927,22 @@ const ProjectDetail = () => {
                     <div>
                       <p className="font-medium text-gray-900">{item.title}</p>
                       {item.description && <p className="text-xs text-gray-500 mt-0.5 truncate max-w-md">{item.description}</p>}
+                      <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-gray-500">
+                        <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{item.assignedTo?.name || 'Unassigned'}</span>
+                        <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">
+                          {item.materials?.length ? `${item.materials.length} material${item.materials.length !== 1 ? 's' : ''}` : 'No materials'}
+                        </span>
+                      </div>
+                      {item.materials?.length ? (
+                        <div className="mt-2 space-y-1 text-xs text-gray-500">
+                          {item.materials.slice(0, 2).map((material: any, index: number) => (
+                            <p key={`${item.id}-material-${index}`}>
+                              {material.quantity} {material.unit} {material.name}
+                              {material.source === 'store' && material.stockItemName ? ` · from ${material.stockItemName}` : ''}
+                            </p>
+                          ))}
+                        </div>
+                      ) : null}
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full capitalize">{item.priority}</span>
@@ -411,6 +1017,13 @@ const ProjectDetail = () => {
                 <textarea value={editForm.description}
                   onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
                   rows={2} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                <input value={editForm.location}
+                  onChange={(e) => setEditForm({ ...editForm, location: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Project location" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -500,6 +1113,20 @@ const ProjectDetail = () => {
                     rows={2} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
                 </div>
               )}
+              {tab === 'tasks' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Assignee</label>
+                  <select value={taskAssigneeId} onChange={(e) => setTaskAssigneeId(e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">Unassigned</option>
+                    {taskMembers.map((member) => (
+                      <option key={member.userId} value={member.userId}>
+                        {member.user?.name || member.user?.email || member.userId} ({member.role})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               {(tab === 'tasks' || tab === 'issues') && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
@@ -516,6 +1143,66 @@ const ProjectDetail = () => {
                   <input type="date" value={createForm.dueDate ?? ''}
                     onChange={(e) => setCreateForm({ ...createForm, dueDate: e.target.value })}
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+              )}
+              {tab === 'tasks' && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-sm font-medium text-gray-700">Assigned Materials</label>
+                    <button type="button" onClick={addTaskMaterial} className="text-xs font-medium text-blue-600 hover:text-blue-700">
+                      + Add material
+                    </button>
+                  </div>
+                  {taskMaterials.map((material, index) => (
+                    <div key={index} className="rounded-xl border border-gray-200 bg-gray-50 p-3 space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Name</label>
+                          <input value={material.name} onChange={(e) => updateTaskMaterial(index, { name: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Source</label>
+                          <select value={material.source} onChange={(e) => updateTaskMaterial(index, { source: e.target.value as 'manual' | 'store' })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="manual">Manual</option>
+                            <option value="store">Store</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Qty</label>
+                          <input type="number" min="0" step="0.01" value={material.quantity}
+                            onChange={(e) => updateTaskMaterial(index, { quantity: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Unit</label>
+                          <input value={material.unit} onChange={(e) => updateTaskMaterial(index, { unit: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Store item</label>
+                          <select value={material.stockItemId || ''} disabled={material.source !== 'store'}
+                            onChange={(e) => updateTaskMaterial(index, { stockItemId: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100">
+                            <option value="">Select item</option>
+                            {taskStockItems.map((item) => (
+                              <option key={item.id} value={item.id}>
+                                {item.name} ({Number(item.currentQuantity).toLocaleString()} {item.unit})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                      <div className="flex justify-end">
+                        <button type="button" onClick={() => removeTaskMaterial(index)} className="text-xs text-red-500 hover:text-red-700">
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
               {tab === 'milestones' && (

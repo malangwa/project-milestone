@@ -1,6 +1,11 @@
 import {
-  Entity, PrimaryGeneratedColumn, Column,
-  CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn,
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
 import { Project } from '../../projects/entities/project.entity';
 import { Milestone } from '../../milestones/entities/milestone.entity';
@@ -20,6 +25,15 @@ export enum TaskPriority {
   HIGH = 'high',
   CRITICAL = 'critical',
 }
+
+export type TaskMaterialAssignment = {
+  name: string;
+  unit: string;
+  quantity: number;
+  source: 'manual' | 'store';
+  stockItemId?: string | null;
+  stockItemName?: string | null;
+};
 
 @Entity('tasks')
 export class Task {
@@ -52,12 +66,15 @@ export class Task {
   @Column({ type: 'enum', enum: TaskPriority, default: TaskPriority.MEDIUM })
   priority: TaskPriority;
 
-  @ManyToOne(() => User, { nullable: true })
+  @ManyToOne(() => User, { nullable: true, eager: true })
   @JoinColumn({ name: 'assigned_to' })
   assignedTo: User;
 
   @Column({ name: 'assigned_to', nullable: true })
   assignedToId: string;
+
+  @Column({ type: 'jsonb', nullable: true })
+  materials: TaskMaterialAssignment[];
 
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'created_by' })

@@ -3,6 +3,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../../store/auth.store';
 import { authApi } from '../../../api/auth.api';
 import api from '../../../api/axios';
+import type { UserRole } from '../../../types/auth.types';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: '▦' },
@@ -12,11 +13,13 @@ const navItems = [
   { to: '/expenses', label: 'Expenses', icon: '💰' },
   { to: '/issues', label: 'Issues', icon: '⚠' },
   { to: '/reports', label: 'Reports', icon: '📊' },
+  { to: '/store', label: 'Store', icon: '🏬' },
   { to: '/calendar', label: 'Calendar', icon: '📅' },
   { to: '/search', label: 'Search', icon: '🔍' },
   { to: '/time-tracking', label: 'Time Tracking', icon: '⏱' },
   { to: '/resources', label: 'Resources', icon: '🔧' },
-  { to: '/users', label: 'Users', icon: '👥', adminOnly: true },
+  { to: '/users', label: 'Users', icon: '👥', roles: ['admin', 'manager'] as UserRole[] },
+  { to: '/audit-logs', label: 'Audit Logs', icon: '🧾', roles: ['admin'] as UserRole[] },
 ];
 
 const AppLayout = () => {
@@ -32,7 +35,7 @@ const AppLayout = () => {
   }, []);
 
   const handleLogout = async () => {
-    try { await authApi.logout(); } catch {}
+    try { await authApi.logout(); } catch { return undefined; }
     clearAuth();
     localStorage.removeItem('refresh_token');
     navigate('/login');
@@ -49,7 +52,7 @@ const AppLayout = () => {
         </div>
 
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {navItems.filter(({ adminOnly }) => !adminOnly || user?.role === 'admin' || user?.role === 'manager').map(({ to, label, icon }) => (
+          {navItems.filter(({ roles }) => !roles || (user?.role ? roles.includes(user.role) : false)).map(({ to, label, icon }) => (
             <NavLink
               key={to}
               to={to}

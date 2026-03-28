@@ -32,12 +32,19 @@ export class ReportsService {
   }
 
   async getOverallSummary() {
-    const [projectCount, taskCount, expenseTotal, issueCount] = await Promise.all([
-      this.dataSource.query(`SELECT COUNT(*) as count FROM projects`),
-      this.dataSource.query(`SELECT status, COUNT(*) as count FROM tasks GROUP BY status`),
-      this.dataSource.query(`SELECT COALESCE(SUM(amount),0) as total FROM expenses WHERE status = 'approved'`),
-      this.dataSource.query(`SELECT status, COUNT(*) as count FROM issues GROUP BY status`),
-    ]);
+    const [projectCount, taskCount, expenseTotal, issueCount] =
+      await Promise.all([
+        this.dataSource.query(`SELECT COUNT(*) as count FROM projects`),
+        this.dataSource.query(
+          `SELECT status, COUNT(*) as count FROM tasks GROUP BY status`,
+        ),
+        this.dataSource.query(
+          `SELECT COALESCE(SUM(amount),0) as total FROM expenses WHERE status = 'approved'`,
+        ),
+        this.dataSource.query(
+          `SELECT status, COUNT(*) as count FROM issues GROUP BY status`,
+        ),
+      ]);
     return {
       projects: parseInt(projectCount[0]?.count ?? '0'),
       tasks: taskCount,

@@ -3,8 +3,42 @@ set -e
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 
-echo "Starting PostgreSQL..."
-sudo systemctl start postgresql
+ensure_dependencies() {
+  local dir="$1"
+  if [ ! -d "$dir/node_modules" ]; then
+    echo "Installing dependencies in $dir..."
+    (cd "$dir" && npm install)
+  fi
+}
+
+ensure_backend_build() {
+  if [ ! -f "$ROOT/backend/dist/main.js" ]; then
+    echo "Backend build not found. Building backend..."
+    (cd "$ROOT/backend" && npm run build)
+  fi
+}
+
+start_postgres_if_needed() {
+  if command -v pg_isready >/dev/null 2>&1 && pg_isready -q; then
+    echo "PostgreSQL is already accepting connections."
+    return
+  fi
+
+  if command -v systemctl >/dev/null 2>&1; then
+    echo "Attempting to start PostgreSQL service..."
+    if sudo -n systemctl start postgresql >/dev/null 2>&1; then
+      echo "PostgreSQL started."
+      return
+    fi
+  fi
+
+  echo "PostgreSQL may need to be started manually before using the app."
+}
+
+ensure_dependencies "$ROOT/backend"
+ensure_dependencies "$ROOT/web"
+ensure_backend_build
+start_postgres_if_needed
 
 echo "Starting backend..."
 cd "$ROOT/backend"

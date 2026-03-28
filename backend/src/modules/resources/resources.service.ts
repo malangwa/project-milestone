@@ -11,11 +11,14 @@ export class ResourcesService {
   ) {}
 
   async create(data: any): Promise<Resource> {
-    return this.repo.save(this.repo.create(data as any) as unknown as Resource);
+    return this.repo.save(this.repo.create(data) as unknown as Resource);
   }
 
   async findByProject(projectId: string): Promise<Resource[]> {
-    return this.repo.find({ where: { projectId }, order: { createdAt: 'DESC' } });
+    return this.repo.find({
+      where: { projectId },
+      order: { createdAt: 'DESC' },
+    });
   }
 
   async findOne(id: string): Promise<Resource> {

@@ -1,4 +1,5 @@
-import { useEffect, useState, FormEvent } from 'react';
+import { useEffect, useState } from 'react';
+import type { FormEvent } from 'react';
 import { projectsApi } from '../../api/projects.api';
 import { timeTrackingApi } from '../../api/time-tracking.api';
 

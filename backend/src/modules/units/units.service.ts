@@ -11,7 +11,7 @@ export class UnitsService {
   ) {}
 
   async create(data: any): Promise<Unit> {
-    return this.repo.save(this.repo.create(data as any) as unknown as Unit);
+    return this.repo.save(this.repo.create(data) as unknown as Unit);
   }
 
   async findAll(): Promise<Unit[]> {

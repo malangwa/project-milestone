@@ -12,7 +12,13 @@ export class ActivitiesController {
 
   @Get('project/:projectId')
   @ApiOperation({ summary: 'Get activity feed for a project' })
-  findByProject(@Param('projectId') projectId: string, @Query('limit') limit?: string) {
-    return this.activitiesService.findByProject(projectId, limit ? parseInt(limit, 10) : 50);
+  findByProject(
+    @Param('projectId') projectId: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.activitiesService.findByProject(
+      projectId,
+      limit ? parseInt(limit, 10) : 50,
+    );
   }
 }

@@ -11,7 +11,7 @@ export class NotificationsService {
   ) {}
 
   async create(data: any): Promise<Notification> {
-    return this.repo.save(this.repo.create(data as any) as unknown as Notification);
+    return this.repo.save(this.repo.create(data) as unknown as Notification);
   }
 
   async findForUser(userId: string): Promise<Notification[]> {

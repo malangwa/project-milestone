@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { tasksApi } from '../../api/tasks.api';
 import { projectsApi } from '../../api/projects.api';
-import type { Task, Project } from '../../types/project.types';
+import { inventoryApi } from '../../api/procurement.api';
+import type { Task, Project, ProjectMember } from '../../types/project.types';
+import type { StockItem } from '../../types/procurement.types';
 
 const priorityColor: Record<string, string> = {
   low: 'bg-gray-100 text-gray-600',
@@ -17,9 +19,20 @@ const TaskList = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState('');
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [members, setMembers] = useState<ProjectMember[]>([]);
+  const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({ title: '', description: '', priority: 'medium', status: 'todo', dueDate: '', estimatedHours: '' });
+  const [form, setForm] = useState({
+    title: '',
+    description: '',
+    priority: 'medium',
+    status: 'todo',
+    dueDate: '',
+    estimatedHours: '',
+    assignedToId: '',
+    materials: [{ name: '', unit: '', quantity: '', source: 'manual', stockItemId: '' }],
+  });
   const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState('all');
 
@@ -34,18 +47,37 @@ const TaskList = () => {
   useEffect(() => {
     if (!selectedProject) return;
     setLoading(true);
-    tasksApi.getByProject(selectedProject)
-      .then((res) => setTasks(res.data?.data || res.data || []))
+    Promise.all([
+      tasksApi.getByProject(selectedProject),
+      projectsApi.getMembers(selectedProject),
+      inventoryApi.getByProject(selectedProject),
+    ])
+      .then(([tasksRes, membersRes, stockRes]) => {
+        setTasks(tasksRes.data?.data || tasksRes.data || []);
+        setMembers(membersRes.data?.data || membersRes.data || []);
+        setStockItems(stockRes.data?.data || stockRes.data || []);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [selectedProject]);
 
-  const reload = () => tasksApi.getByProject(selectedProject).then((res) => setTasks(res.data?.data || res.data || []));
+  const reload = () => {
+    if (!selectedProject) return Promise.resolve();
+    return Promise.all([
+      tasksApi.getByProject(selectedProject),
+      projectsApi.getMembers(selectedProject),
+      inventoryApi.getByProject(selectedProject),
+    ]).then(([tasksRes, membersRes, stockRes]) => {
+      setTasks(tasksRes.data?.data || tasksRes.data || []);
+      setMembers(membersRes.data?.data || membersRes.data || []);
+      setStockItems(stockRes.data?.data || stockRes.data || []);
+    });
+  };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this task?')) return;
     await tasksApi.remove(id);
-    setTasks((prev) => prev.filter((t) => t.id !== id));
+    await reload();
   };
 
   const handleStatusChange = async (id: string, status: string) => {
@@ -57,12 +89,65 @@ const TaskList = () => {
     e.preventDefault();
     setSaving(true);
     try {
-      const clean = Object.fromEntries(Object.entries(form).filter(([, v]) => v !== ''));
-      await tasksApi.create({ ...clean, projectId: selectedProject, estimatedHours: Number(form.estimatedHours) || undefined });
+      const materials = form.materials
+        .filter((material) => material.name.trim() && material.unit.trim() && Number(material.quantity) > 0)
+        .map((material) => ({
+          name: material.name.trim(),
+          unit: material.unit.trim(),
+          quantity: Number(material.quantity),
+          source: material.source,
+          stockItemId: material.source === 'store' ? material.stockItemId || undefined : undefined,
+          stockItemName: material.source === 'store'
+            ? stockItems.find((item) => item.id === material.stockItemId)?.name
+            : undefined,
+        }));
+
+      const payload = {
+        title: form.title,
+        description: form.description || undefined,
+        priority: form.priority,
+        status: form.status,
+        dueDate: form.dueDate || undefined,
+        estimatedHours: Number(form.estimatedHours) || undefined,
+        assignedToId: form.assignedToId || undefined,
+        materials,
+        projectId: selectedProject,
+      };
+      await tasksApi.create(payload);
       setShowModal(false);
-      setForm({ title: '', description: '', priority: 'medium', status: 'todo', dueDate: '', estimatedHours: '' });
+      setForm({
+        title: '',
+        description: '',
+        priority: 'medium',
+        status: 'todo',
+        dueDate: '',
+        estimatedHours: '',
+        assignedToId: '',
+        materials: [{ name: '', unit: '', quantity: '', source: 'manual', stockItemId: '' }],
+      });
       reload();
     } finally { setSaving(false); }
+  };
+
+  const updateMaterial = (index: number, patch: Partial<(typeof form.materials)[number]>) => {
+    setForm((prev) => ({
+      ...prev,
+      materials: prev.materials.map((material, currentIndex) => (currentIndex === index ? { ...material, ...patch } : material)),
+    }));
+  };
+
+  const addMaterial = () => {
+    setForm((prev) => ({
+      ...prev,
+      materials: [...prev.materials, { name: '', unit: '', quantity: '', source: 'manual', stockItemId: '' }],
+    }));
+  };
+
+  const removeMaterial = (index: number) => {
+    setForm((prev) => ({
+      ...prev,
+      materials: prev.materials.length === 1 ? prev.materials : prev.materials.filter((_, currentIndex) => currentIndex !== index),
+    }));
   };
 
   const filtered = filter === 'all' ? tasks : tasks.filter((t) => t.status === filter);
@@ -108,6 +193,24 @@ const TaskList = () => {
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-gray-900 truncate">{t.title}</p>
                 {t.description && <p className="text-xs text-gray-500 truncate mt-0.5">{t.description}</p>}
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                  <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+                    {t.assignedTo?.name || 'Unassigned'}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">
+                    {t.materials?.length ? `${t.materials.length} material${t.materials.length !== 1 ? 's' : ''}` : 'No materials'}
+                  </span>
+                </div>
+                {t.materials?.length ? (
+                  <div className="mt-2 text-xs text-gray-500 space-y-1">
+                    {t.materials.slice(0, 2).map((material, index) => (
+                      <p key={`${t.id}-${index}`}>
+                        {material.quantity} {material.unit} {material.name}
+                        {material.source === 'store' && material.stockItemName ? ` · from ${material.stockItemName}` : ''}
+                      </p>
+                    ))}
+                  </div>
+                ) : null}
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 {t.dueDate && <span className="text-xs text-gray-400">{new Date(t.dueDate).toLocaleDateString()}</span>}
@@ -143,6 +246,18 @@ const TaskList = () => {
                 <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
                   rows={2} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Assignee</label>
+                <select value={form.assignedToId} onChange={(e) => setForm({ ...form, assignedToId: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="">Unassigned</option>
+                  {members.map((member) => (
+                    <option key={member.userId} value={member.userId}>
+                      {member.user?.name || member.user?.email || member.userId} ({member.role})
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
@@ -170,6 +285,66 @@ const TaskList = () => {
                   <input type="number" min="0" value={form.estimatedHours} onChange={(e) => setForm({ ...form, estimatedHours: e.target.value })}
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="0" />
                 </div>
+              </div>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="block text-sm font-medium text-gray-700">Assigned Materials</label>
+                  <button type="button" onClick={addMaterial} className="text-xs font-medium text-blue-600 hover:text-blue-700">
+                    + Add material
+                  </button>
+                </div>
+                {form.materials.map((material, index) => (
+                  <div key={index} className="rounded-xl border border-gray-200 bg-gray-50 p-3 space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Name</label>
+                        <input value={material.name} onChange={(e) => updateMaterial(index, { name: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Source</label>
+                        <select value={material.source} onChange={(e) => updateMaterial(index, { source: e.target.value as 'manual' | 'store' })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                          <option value="manual">Manual</option>
+                          <option value="store">Store</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Qty</label>
+                        <input type="number" min="0" step="0.01" value={material.quantity}
+                          onChange={(e) => updateMaterial(index, { quantity: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Unit</label>
+                        <input value={material.unit} onChange={(e) => updateMaterial(index, { unit: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Store item</label>
+                        <select
+                          value={material.stockItemId || ''}
+                          onChange={(e) => updateMaterial(index, { stockItemId: e.target.value })}
+                          disabled={material.source !== 'store'}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100">
+                          <option value="">Select item</option>
+                          {stockItems.map((item) => (
+                            <option key={item.id} value={item.id}>
+                              {item.name} ({Number(item.currentQuantity).toLocaleString()} {item.unit})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="flex justify-end">
+                      <button type="button" onClick={() => removeMaterial(index)} className="text-xs text-red-500 hover:text-red-700">
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowModal(false)}

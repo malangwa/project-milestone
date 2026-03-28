@@ -1,7 +1,12 @@
 import {
-  Entity, PrimaryGeneratedColumn, Column,
-  CreateDateColumn, UpdateDateColumn, ManyToOne,
-  JoinColumn, OneToMany,
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
+  OneToMany,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 
@@ -31,7 +36,14 @@ export class Project {
   @Column({ type: 'text', nullable: true })
   description: string;
 
-  @Column({ type: 'enum', enum: ProjectStatus, default: ProjectStatus.PLANNING })
+  @Column({ type: 'varchar', nullable: true })
+  location: string;
+
+  @Column({
+    type: 'enum',
+    enum: ProjectStatus,
+    default: ProjectStatus.PLANNING,
+  })
   status: ProjectStatus;
 
   @Column({ type: 'enum', enum: Industry, default: Industry.OTHER })

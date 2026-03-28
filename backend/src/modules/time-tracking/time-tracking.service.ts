@@ -11,7 +11,7 @@ export class TimeTrackingService {
   ) {}
 
   async create(data: any): Promise<TimeEntry> {
-    return this.repo.save(this.repo.create(data as any) as unknown as TimeEntry);
+    return this.repo.save(this.repo.create(data) as unknown as TimeEntry);
   }
 
   async findByProject(projectId: string): Promise<TimeEntry[]> {

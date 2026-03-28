@@ -11,10 +11,13 @@ export class CommentsService {
   ) {}
 
   async create(data: any): Promise<Comment> {
-    return this.repo.save(this.repo.create(data as any) as unknown as Comment);
+    return this.repo.save(this.repo.create(data) as unknown as Comment);
   }
 
-  async findByEntity(entityType: CommentEntityType, entityId: string): Promise<Comment[]> {
+  async findByEntity(
+    entityType: CommentEntityType,
+    entityId: string,
+  ): Promise<Comment[]> {
     return this.repo.find({
       where: { entityType, entityId },
       relations: ['author'],
@@ -25,7 +28,8 @@ export class CommentsService {
   async remove(id: string, userId: string): Promise<void> {
     const comment = await this.repo.findOne({ where: { id } });
     if (!comment) throw new NotFoundException('Comment not found');
-    if (comment.authorId !== userId) throw new NotFoundException('Not your comment');
+    if (comment.authorId !== userId)
+      throw new NotFoundException('Not your comment');
     await this.repo.remove(comment);
   }
 }

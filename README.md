@@ -42,6 +42,13 @@ npm run start:dev
 # Swagger docs: http://localhost:3000/api/docs
 ```
 
+Optional migration workflow:
+
+```bash
+npm run migration:generate
+npm run migration:run
+```
+
 ### Web
 ```bash
 cd web
@@ -49,6 +56,11 @@ cp .env.example .env
 npm install
 npm run dev
 # App: http://localhost:5173
+```
+
+### Quick Start Script
+```bash
+./start.sh
 ```
 
 ### Mobile
@@ -70,3 +82,10 @@ flutter run
 `http://localhost:3000/api/v1`
 
 Swagger UI: `http://localhost:3000/api/docs`
+
+## Environment Notes
+
+- `backend/.env.example` includes `FRONTEND_URLS` for CORS and `DB_SYNCHRONIZE` / `DB_MIGRATIONS_RUN` to control schema sync vs migrations.
+- `web/.env.example` includes `VITE_WS_URL` so Socket.IO does not depend on a hard-coded localhost value.
+- `docs/roadmap.md` tracks the next larger delivery phases beyond the foundation fixes in this pass.
+- `docs/presentation-checklist.md` gives a suggested live demo sequence for the morning presentation.

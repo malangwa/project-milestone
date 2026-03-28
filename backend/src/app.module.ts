@@ -21,6 +21,12 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { ReportsModule } from './modules/reports/reports.module';
 import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
 import { SearchModule } from './modules/search/search.module';
+import { MaterialRequestsModule } from './modules/material-requests/material-requests.module';
+import { SuppliersModule } from './modules/suppliers/suppliers.module';
+import { PurchaseOrdersModule } from './modules/purchase-orders/purchase-orders.module';
+import { SupplierInvoicesModule } from './modules/supplier-invoices/supplier-invoices.module';
+import { GoodsReceiptsModule } from './modules/goods-receipts/goods-receipts.module';
+import { InventoryModule } from './modules/inventory/inventory.module';
 
 @Module({
   imports: [
@@ -30,17 +36,32 @@ import { SearchModule } from './modules/search/search.module';
     }),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        type: 'postgres',
-        host: config.get('database.host'),
-        port: config.get('database.port'),
-        username: config.get('database.username'),
-        password: config.get('database.password'),
-        database: config.get('database.database'),
-        entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
-        synchronize: process.env.NODE_ENV !== 'production',
-      }),
+      useFactory: (config: ConfigService) => {
+        const isProduction = process.env.NODE_ENV === 'production';
+        const databaseUrl = config.get<string>('database.url');
+
+        const base = databaseUrl
+          ? { url: databaseUrl }
+          : {
+              host: config.get('database.host'),
+              port: config.get('database.port'),
+              username: config.get('database.username'),
+              password: config.get('database.password'),
+              database: config.get('database.database'),
+            };
+
+        return {
+          type: 'postgres' as const,
+          ...base,
+          entities: [__dirname + '/**/*.entity{.ts,.js}'],
+          migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
+          migrationsRun: process.env.DB_MIGRATIONS_RUN === 'true',
+          synchronize: process.env.DB_SYNCHRONIZE
+            ? process.env.DB_SYNCHRONIZE === 'true'
+            : !isProduction,
+          ssl: isProduction ? { rejectUnauthorized: false } : false,
+        };
+      },
     }),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
     AuthModule,
@@ -60,6 +81,12 @@ import { SearchModule } from './modules/search/search.module';
     ReportsModule,
     AuditLogsModule,
     SearchModule,
+    MaterialRequestsModule,
+    SuppliersModule,
+    PurchaseOrdersModule,
+    SupplierInvoicesModule,
+    GoodsReceiptsModule,
+    InventoryModule,
   ],
 })
 export class AppModule {}

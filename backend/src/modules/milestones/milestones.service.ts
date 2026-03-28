@@ -11,7 +11,7 @@ export class MilestonesService {
   ) {}
 
   async create(data: any): Promise<Milestone> {
-    return this.repo.save(this.repo.create(data as any) as unknown as Milestone);
+    return this.repo.save(this.repo.create(data) as unknown as Milestone);
   }
 
   async findByProject(projectId: string): Promise<Milestone[]> {

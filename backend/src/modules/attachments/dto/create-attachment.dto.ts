@@ -7,5 +7,9 @@ export class CreateAttachmentDto {
   @ApiProperty() @IsString() filename: string;
   @ApiProperty() @IsString() url: string;
   @ApiProperty({ required: false }) @IsString() @IsOptional() mimeType?: string;
-  @ApiProperty({ required: false }) @IsNumber() @Min(0) @IsOptional() size?: number;
+  @ApiProperty({ required: false })
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  size?: number;
 }
