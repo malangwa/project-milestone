@@ -10,11 +10,13 @@ import '../../../data/services/report_service.dart';
 class DashboardBundle {
   const DashboardBundle({
     required this.projects,
-    required this.overview,
+    this.overview,
+    this.error,
   });
 
   final List<ProjectModel> projects;
-  final OverviewSummaryModel overview;
+  final OverviewSummaryModel? overview;
+  final String? error;
 }
 
 class DashboardPage extends StatefulWidget {
@@ -34,14 +36,30 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<DashboardBundle> _load() async {
-    final results = await Future.wait<dynamic>([
-      ProjectService.instance.getProjects(),
-      ReportService.instance.getOverview(),
-    ]);
+    List<ProjectModel> projects = [];
+    OverviewSummaryModel? overview;
+    String? error;
+
+    try {
+      projects = await ProjectService.instance.getProjects();
+    } catch (e) {
+      error = 'Could not load projects: $e';
+    }
+
+    try {
+      overview = await ReportService.instance.getOverview();
+    } catch (_) {
+      // Overview is optional - dashboard still works without it
+    }
+
+    if (projects.isEmpty && overview == null && error != null) {
+      throw Exception(error);
+    }
 
     return DashboardBundle(
-      projects: results[0] as List<ProjectModel>,
-      overview: results[1] as OverviewSummaryModel,
+      projects: projects,
+      overview: overview,
+      error: error,
     );
   }
 
@@ -52,40 +70,81 @@ class _DashboardPageState extends State<DashboardPage> {
     return RefreshIndicator(
       onRefresh: () async {
         setState(() => _future = _load());
-        await _future;
+        await _future.catchError((_) => DashboardBundle(projects: []));
       },
       child: FutureBuilder<DashboardBundle>(
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Loading dashboard...'),
+                  SizedBox(height: 8),
+                  Text(
+                    'First load may take up to 30s\n(server waking up)',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
+                  ),
+                ],
+              ),
+            );
           }
 
           if (snapshot.hasError) {
             return ListView(
               padding: const EdgeInsets.all(24),
               children: [
-                const SizedBox(height: 120),
+                const SizedBox(height: 100),
+                const Icon(Icons.cloud_off, size: 48, color: Color(0xFF9CA3AF)),
+                const SizedBox(height: 16),
                 Text(
                   'Failed to load dashboard',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '${snapshot.error}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
+                ),
+                const SizedBox(height: 24),
+                Center(
+                  child: FilledButton.icon(
+                    onPressed: () => setState(() => _future = _load()),
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Retry'),
+                  ),
                 ),
               ],
             );
           }
 
           final data = snapshot.data!;
+          final overview = data.overview;
           final activeProjects =
-              data.projects.where((project) => project.status == 'active').length;
-          final totalTasks =
-              data.overview.taskGroups.fold<int>(0, (sum, item) => sum + item.count);
-          final doneTasks = data.overview.taskGroups
-              .where((item) => item.status == 'done')
-              .fold<int>(0, (sum, item) => sum + item.count);
-          final openIssues = data.overview.issueGroups
-              .where((item) => item.status == 'open')
-              .fold<int>(0, (sum, item) => sum + item.count);
+              data.projects.where((p) => p.status == 'active').length;
+
+          int totalTasks = 0;
+          int doneTasks = 0;
+          int openIssues = 0;
+          double approvedExpenses = 0;
+
+          if (overview != null) {
+            totalTasks =
+                overview.taskGroups.fold<int>(0, (s, i) => s + i.count);
+            doneTasks = overview.taskGroups
+                .where((i) => i.status == 'done')
+                .fold<int>(0, (s, i) => s + i.count);
+            openIssues = overview.issueGroups
+                .where((i) => i.status == 'open')
+                .fold<int>(0, (s, i) => s + i.count);
+            approvedExpenses = overview.approvedExpenses;
+          }
 
           return ListView(
             padding: const EdgeInsets.all(16),
@@ -104,21 +163,23 @@ class _DashboardPageState extends State<DashboardPage> {
                     value: activeProjects.toString(),
                     color: Colors.green,
                   ),
-                  _MetricCard(
-                    label: 'Tasks Done',
-                    value: '$doneTasks/$totalTasks',
-                    color: Colors.deepPurple,
-                  ),
-                  _MetricCard(
-                    label: 'Open Issues',
-                    value: openIssues.toString(),
-                    color: Colors.red,
-                  ),
-                  _MetricCard(
-                    label: 'Approved Spend',
-                    value: currency.format(data.overview.approvedExpenses),
-                    color: Colors.indigo,
-                  ),
+                  if (overview != null) ...[
+                    _MetricCard(
+                      label: 'Tasks Done',
+                      value: '$doneTasks/$totalTasks',
+                      color: Colors.deepPurple,
+                    ),
+                    _MetricCard(
+                      label: 'Open Issues',
+                      value: openIssues.toString(),
+                      color: Colors.red,
+                    ),
+                    _MetricCard(
+                      label: 'Approved Spend',
+                      value: currency.format(approvedExpenses),
+                      color: Colors.indigo,
+                    ),
+                  ],
                 ],
               ),
               const SizedBox(height: 20),

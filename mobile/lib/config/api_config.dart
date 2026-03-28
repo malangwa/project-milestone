@@ -21,5 +21,6 @@ class ApiConfig {
     return productionUrl;
   }
 
-  static const Duration timeout = Duration(seconds: 30);
+  // Render free tier can be slow on cold starts
+  static const Duration timeout = Duration(seconds: 60);
 }

@@ -23,17 +23,18 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   late int _currentIndex;
+  final Set<int> _visitedPages = {};
 
-  static const _pages = <Widget>[
-    DashboardPage(),
-    ProjectListPage(),
-    TaskListPage(),
-    MilestoneListPage(),
-    ExpenseListPage(),
-    IssueListPage(),
-    ActivityListPage(),
-    ReportPage(),
-    StorePage(),
+  static const _builders = <Widget Function()>[
+    DashboardPage.new,
+    ProjectListPage.new,
+    TaskListPage.new,
+    MilestoneListPage.new,
+    ExpenseListPage.new,
+    IssueListPage.new,
+    ActivityListPage.new,
+    ReportPage.new,
+    StorePage.new,
   ];
 
   static const _destinations = <_NavItem>[
@@ -51,7 +52,8 @@ class _HomeShellState extends State<HomeShell> {
   @override
   void initState() {
     super.initState();
-    _currentIndex = widget.initialIndex.clamp(0, _pages.length - 1);
+    _currentIndex = widget.initialIndex.clamp(0, _builders.length - 1);
+    _visitedPages.add(_currentIndex);
   }
 
   Future<void> _logout() async {
@@ -62,18 +64,19 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   void _goTo(int index) {
-    Navigator.of(context).pop(); // close drawer
-    setState(() => _currentIndex = index);
+    Navigator.of(context).pop();
+    setState(() {
+      _currentIndex = index;
+      _visitedPages.add(index);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final user = SessionController.instance.currentUser;
 
-    // Bottom nav shows the 5 primary tabs; the rest live only in the drawer
     const bottomNavCount = 5;
-    final bottomIndex =
-        _currentIndex < bottomNavCount ? _currentIndex : -1;
+    final bottomIndex = _currentIndex < bottomNavCount ? _currentIndex : -1;
 
     return Scaffold(
       appBar: AppBar(
@@ -146,11 +149,23 @@ class _HomeShellState extends State<HomeShell> {
           ],
         ),
       ),
-      body: IndexedStack(index: _currentIndex, children: _pages),
+      body: IndexedStack(
+        index: _currentIndex,
+        children: [
+          for (var i = 0; i < _builders.length; i++)
+            if (_visitedPages.contains(i))
+              _builders[i]()
+            else
+              const SizedBox.shrink(),
+        ],
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: bottomIndex == -1 ? 0 : bottomIndex,
         onDestinationSelected: (index) {
-          setState(() => _currentIndex = index);
+          setState(() {
+            _currentIndex = index;
+            _visitedPages.add(index);
+          });
         },
         destinations: [
           for (var i = 0; i < bottomNavCount; i++)
