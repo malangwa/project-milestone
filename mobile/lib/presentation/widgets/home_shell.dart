@@ -23,19 +23,7 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   late int _currentIndex;
-  final Set<int> _visitedPages = {};
-
-  static const _builders = <Widget Function()>[
-    DashboardPage.new,
-    ProjectListPage.new,
-    TaskListPage.new,
-    MilestoneListPage.new,
-    ExpenseListPage.new,
-    IssueListPage.new,
-    ActivityListPage.new,
-    ReportPage.new,
-    StorePage.new,
-  ];
+  final Map<int, Widget> _cachedPages = {};
 
   static const _destinations = <_NavItem>[
     _NavItem('Dashboard', Icons.dashboard_outlined, Icons.dashboard),
@@ -49,11 +37,29 @@ class _HomeShellState extends State<HomeShell> {
     _NavItem('Store', Icons.inventory_2_outlined, Icons.inventory_2),
   ];
 
+  Widget _buildPage(int index) {
+    return switch (index) {
+      0 => const DashboardPage(),
+      1 => const ProjectListPage(),
+      2 => const TaskListPage(),
+      3 => const MilestoneListPage(),
+      4 => const ExpenseListPage(),
+      5 => const IssueListPage(),
+      6 => const ActivityListPage(),
+      7 => const ReportPage(),
+      8 => const StorePage(),
+      _ => const DashboardPage(),
+    };
+  }
+
+  Widget _getPage(int index) {
+    return _cachedPages.putIfAbsent(index, () => _buildPage(index));
+  }
+
   @override
   void initState() {
     super.initState();
-    _currentIndex = widget.initialIndex.clamp(0, _builders.length - 1);
-    _visitedPages.add(_currentIndex);
+    _currentIndex = widget.initialIndex.clamp(0, _destinations.length - 1);
   }
 
   Future<void> _logout() async {
@@ -65,10 +71,7 @@ class _HomeShellState extends State<HomeShell> {
 
   void _goTo(int index) {
     Navigator.of(context).pop();
-    setState(() {
-      _currentIndex = index;
-      _visitedPages.add(index);
-    });
+    setState(() => _currentIndex = index);
   }
 
   @override
@@ -152,9 +155,11 @@ class _HomeShellState extends State<HomeShell> {
       body: IndexedStack(
         index: _currentIndex,
         children: [
-          for (var i = 0; i < _builders.length; i++)
-            if (_visitedPages.contains(i))
-              _builders[i]()
+          for (var i = 0; i < _destinations.length; i++)
+            if (_cachedPages.containsKey(i))
+              _getPage(i)
+            else if (i == _currentIndex)
+              _getPage(i)
             else
               const SizedBox.shrink(),
         ],
@@ -162,10 +167,7 @@ class _HomeShellState extends State<HomeShell> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: bottomIndex == -1 ? 0 : bottomIndex,
         onDestinationSelected: (index) {
-          setState(() {
-            _currentIndex = index;
-            _visitedPages.add(index);
-          });
+          setState(() => _currentIndex = index);
         },
         destinations: [
           for (var i = 0; i < bottomNavCount; i++)

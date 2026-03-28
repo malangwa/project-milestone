@@ -74,6 +74,11 @@ export class InventoryService {
     projects: { id: string; name: string }[];
   }> {
     const projects = await this.projectsService.findAll(userId, role);
+
+    if (projects.length === 0) {
+      return { items: [], projects: [] };
+    }
+
     const projectMap = new Map(projects.map((p) => [p.id, p.name]));
 
     const items = await this.stockRepo
