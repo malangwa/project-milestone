@@ -9,8 +9,8 @@ services:
     name: project-milestone-api
     runtime: node
     rootDir: backend
-    buildCommand: npm install && npm run build
-    startCommand: npm run start:prod
+    buildCommand: npm install --include=dev && npm run build
+    startCommand: node dist/main
     envVars:
       - key: NODE_ENV
         value: production
