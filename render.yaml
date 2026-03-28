@@ -8,7 +8,6 @@ services:
   - type: web
     name: project-milestone-api
     runtime: node
-    plan: starter
     rootDir: backend
     buildCommand: npm install && npm run build
     startCommand: npm run start:prod
@@ -39,7 +38,6 @@ services:
   - type: web
     name: project-milestone-web
     runtime: static
-    plan: starter
     rootDir: web
     buildCommand: npm install && npm run build
     staticPublishPath: dist
