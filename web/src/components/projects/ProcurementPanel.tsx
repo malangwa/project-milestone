@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
+import { attachmentsApi } from '../../api/attachments.api';
+import { materialRequestsApi } from '../../api/material-requests.api';
 import {
   goodsReceiptsApi,
   inventoryApi,
@@ -9,13 +11,16 @@ import {
 } from '../../api/procurement.api';
 import type {
   GoodsReceipt,
+  GoodsReceiptDestinationType,
   PurchaseOrder,
   PurchaseOrderItem,
   Supplier,
   SupplierInvoice,
+  StockStatus,
   StockItem,
   StockMovement,
 } from '../../types/procurement.types';
+import type { MaterialRequest } from '../../types/project.types';
 
 type OrderFormItem = {
   id: string;
@@ -59,6 +64,8 @@ type ReceiptFormItem = {
 
 type ReceiptForm = {
   notes: string;
+  destinationType: GoodsReceiptDestinationType;
+  destinationLabel: string;
   items: ReceiptFormItem[];
 };
 
@@ -110,6 +117,8 @@ const emptyInvoiceForm = (): InvoiceForm => ({
 
 const emptyReceiptForm = (): ReceiptForm => ({
   notes: '',
+  destinationType: 'store',
+  destinationLabel: 'Main Store',
   items: [],
 });
 
@@ -128,10 +137,12 @@ export const ProcurementPanel = ({ projectId, canApprove, canEdit, initialMateri
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [approvedRequests, setApprovedRequests] = useState<MaterialRequest[]>([]);
   const [supplierForm, setSupplierForm] = useState({ name: '', email: '', phone: '' });
   const [creatingSupplier, setCreatingSupplier] = useState(false);
   const [orders, setOrders] = useState<PurchaseOrder[]>([]);
   const [orderInvoices, setOrderInvoices] = useState<Record<string, SupplierInvoice[]>>({});
+  const [invoiceAttachments, setInvoiceAttachments] = useState<Record<string, any[]>>({});
   const [orderReceipts, setOrderReceipts] = useState<Record<string, GoodsReceipt[]>>({});
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [movements, setMovements] = useState<StockMovement[]>([]);
@@ -146,6 +157,8 @@ export const ProcurementPanel = ({ projectId, canApprove, canEdit, initialMateri
   const [savingReceipt, setSavingReceipt] = useState(false);
   const [savingAdjust, setSavingAdjust] = useState(false);
   const [actingInvoiceId, setActingInvoiceId] = useState<string | null>(null);
+  const [uploadingInvoiceId, setUploadingInvoiceId] = useState<string | null>(null);
+  const [transferringStockId, setTransferringStockId] = useState<string | null>(null);
 
   const totalInvoices = Object.values(orderInvoices).reduce((sum, invoices) => sum + invoices.length, 0);
   const totalReceipts = Object.values(orderReceipts).reduce((sum, receipts) => sum + receipts.length, 0);
@@ -182,19 +195,32 @@ export const ProcurementPanel = ({ projectId, canApprove, canEdit, initialMateri
     setLoading(true);
     setError('');
     try {
-      const [suppliersRes, ordersRes, inventoryRes, movementsRes] = await Promise.all([
+      const [
+        suppliersRes,
+        requestsRes,
+        ordersRes,
+        inventoryRes,
+        movementsRes,
+      ] = await Promise.all([
         suppliersApi.getAll(),
+        materialRequestsApi.getByProject(projectId),
         purchaseOrdersApi.getByProject(projectId),
         inventoryApi.getByProject(projectId),
         inventoryApi.getMovements(projectId),
       ]);
 
       const supplierList = suppliersRes.data?.data || suppliersRes.data || [];
+      const requestList = requestsRes.data?.data || requestsRes.data || [];
       const orderList = ordersRes.data?.data || ordersRes.data || [];
       const inventoryList = inventoryRes.data?.data || inventoryRes.data || [];
       const movementList = movementsRes.data?.data || movementsRes.data || [];
 
       setSuppliers(supplierList);
+      setApprovedRequests(
+        (requestList as MaterialRequest[]).filter(
+          (request) => request.status === 'approved',
+        ),
+      );
       setOrders(orderList);
       setStockItems(inventoryList);
       setMovements(movementList);
@@ -214,9 +240,21 @@ export const ProcurementPanel = ({ projectId, canApprove, canEdit, initialMateri
           return [order.id, response.data?.data || response.data || []] as const;
         }),
       );
+      const attachmentPairs = await Promise.all(
+        invoicePairs.flatMap(([, invoices]) =>
+          (invoices as SupplierInvoice[]).map(async (invoice) => {
+            const response = await attachmentsApi.getByEntity(
+              'supplier_invoice',
+              invoice.id,
+            );
+            return [invoice.id, response.data?.data || response.data || []] as const;
+          }),
+        ),
+      );
 
       setOrderInvoices(Object.fromEntries(invoicePairs));
       setOrderReceipts(Object.fromEntries(receiptPairs));
+      setInvoiceAttachments(Object.fromEntries(attachmentPairs));
     } catch (err: any) {
       setError(getErrorMessage(err, 'Failed to load procurement data'));
     } finally {
@@ -247,8 +285,8 @@ export const ProcurementPanel = ({ projectId, canApprove, canEdit, initialMateri
 
   useEffect(() => {
     if (!initialMaterialRequestId) return;
-    setOrderForm((prev) => ({ ...prev, materialRequestId: initialMaterialRequestId }));
-  }, [initialMaterialRequestId]);
+    syncOrderWithRequest(initialMaterialRequestId);
+  }, [initialMaterialRequestId, approvedRequests]);
 
   const addOrderItem = () => setOrderForm((prev) => ({ ...prev, items: [...prev.items, emptyOrderItem()] }));
   const removeOrderItem = (index: number) => setOrderForm((prev) => ({
@@ -259,6 +297,54 @@ export const ProcurementPanel = ({ projectId, canApprove, canEdit, initialMateri
     ...prev,
     items: prev.items.map((item, itemIndex) => (itemIndex === index ? { ...item, [field]: value } : item)),
   }));
+
+  const syncOrderWithRequest = (requestId: string) => {
+    const request = approvedRequests.find((item) => item.id === requestId);
+    setOrderForm((prev) => {
+      if (!request) {
+        return { ...prev, materialRequestId: requestId };
+      }
+
+      return {
+        ...prev,
+        materialRequestId: request.id,
+        title:
+          prev.title.trim() ||
+          request.title ||
+          `Purchase for ${request.title || 'approved request'}`,
+        notes: prev.notes.trim() || request.purpose || request.notes || '',
+        items:
+          request.items?.length > 0
+            ? request.items.map((item) => ({
+                id: crypto.randomUUID(),
+                name: item.name,
+                description: item.notes || '',
+                quantity: String(Number(item.quantity || 0)),
+                unit: item.unit,
+                unitPrice: String(
+                  Number(item.quantity || 0) > 0
+                    ? Number(item.estimatedCost || 0) / Number(item.quantity || 1)
+                    : Number(item.estimatedCost || 0),
+                ),
+                notes: item.notes || '',
+              }))
+            : prev.items,
+      };
+    });
+  };
+
+  const getStockStatusClass = (status: StockStatus) => {
+    switch (status) {
+      case 'available_in_store':
+        return 'bg-emerald-100 text-emerald-700';
+      case 'allocated_to_site':
+        return 'bg-amber-100 text-amber-700';
+      case 'allocated_to_project':
+        return 'bg-blue-100 text-blue-700';
+      default:
+        return 'bg-gray-100 text-gray-700';
+    }
+  };
 
   const handleCreateOrder = async (e: FormEvent) => {
     e.preventDefault();
@@ -344,10 +430,42 @@ export const ProcurementPanel = ({ projectId, canApprove, canEdit, initialMateri
     }
   };
 
+  const handleUploadInvoiceProof = async (invoiceId: string, file: File) => {
+    setUploadingInvoiceId(invoiceId);
+    setError('');
+    try {
+      const description =
+        window.prompt(
+          'What is this payment proof for?',
+          'Bank transfer / payment receipt for supplier invoice',
+        ) || '';
+      await attachmentsApi.upload(file, 'supplier_invoice', invoiceId, description);
+      await loadData();
+    } catch (err: any) {
+      setError(getErrorMessage(err, 'Failed to upload payment proof'));
+    } finally {
+      setUploadingInvoiceId(null);
+    }
+  };
+
+  const openAttachment = async (attachmentId: string) => {
+    try {
+      const response = await attachmentsApi.getDownloadUrl(attachmentId);
+      const url = response.data?.data?.url || response.data?.url;
+      if (url) {
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
+    } catch (err: any) {
+      setError(getErrorMessage(err, 'Failed to open attachment'));
+    }
+  };
+
   const startReceipt = (order: PurchaseOrder) => {
     setReceiptTarget(order.id);
     setReceiptForm({
       notes: '',
+      destinationType: 'store',
+      destinationLabel: 'Main Store',
       items: (order.items || []).map((item) => ({
         purchaseOrderItemId: item.id,
         name: item.name,
@@ -374,6 +492,8 @@ export const ProcurementPanel = ({ projectId, canApprove, canEdit, initialMateri
     try {
       await goodsReceiptsApi.create(receiptTarget, {
         notes: receiptForm.notes.trim() || undefined,
+        destinationType: receiptForm.destinationType,
+        destinationLabel: receiptForm.destinationLabel.trim() || undefined,
         items: receiptForm.items.map((item) => ({
           purchaseOrderItemId: item.purchaseOrderItemId,
           name: item.name.trim(),
@@ -389,6 +509,39 @@ export const ProcurementPanel = ({ projectId, canApprove, canEdit, initialMateri
       await loadData();
     } finally {
       setSavingReceipt(false);
+    }
+  };
+
+  const handleTransferStock = async (
+    stockItemId: string,
+    stockStatus: StockStatus,
+    currentLocation?: string | null,
+  ) => {
+    setTransferringStockId(stockItemId);
+    setError('');
+    try {
+      const nextLocation =
+        window.prompt(
+          stockStatus === 'available_in_store'
+            ? 'Store name or shelf'
+            : 'Site or allocation location',
+          currentLocation || '',
+        ) || '';
+      const allocationTarget =
+        stockStatus === 'available_in_store'
+          ? undefined
+          : window.prompt('Allocated to which site/project?', nextLocation || '') ||
+            '';
+      await inventoryApi.transfer(projectId, stockItemId, {
+        stockStatus,
+        location: nextLocation || undefined,
+        allocationTarget: allocationTarget?.trim() || undefined,
+      });
+      await loadData();
+    } catch (err: any) {
+      setError(getErrorMessage(err, 'Failed to transfer stock'));
+    } finally {
+      setTransferringStockId(null);
     }
   };
 
@@ -538,12 +691,23 @@ export const ProcurementPanel = ({ projectId, canApprove, canEdit, initialMateri
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Linked Material Request</label>
-                    <input
+                    <select
                       value={orderForm.materialRequestId}
-                      onChange={(e) => setOrderForm({ ...orderForm, materialRequestId: e.target.value })}
+                      onChange={(e) => syncOrderWithRequest(e.target.value)}
                       className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Optional material request ID"
-                    />
+                    >
+                      <option value="">No linked request</option>
+                      {approvedRequests.map((request) => (
+                        <option key={request.id} value={request.id}>
+                          {request.title} · {money(request.requestedAmount)}
+                        </option>
+                      ))}
+                    </select>
+                    {approvedRequests.length > 0 && (
+                      <p className="mt-1 text-xs text-gray-500">
+                        Selecting an approved request fills the order items for the engineer.
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Tax Amount</label>
@@ -738,9 +902,17 @@ export const ProcurementPanel = ({ projectId, canApprove, canEdit, initialMateri
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-semibold text-gray-900">{order.orderNumber}</p>
                           <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700 capitalize">{order.status.replace('_', ' ')}</span>
+                          {order.materialRequestId && (
+                            <span className="text-xs px-2 py-1 rounded-full bg-blue-50 text-blue-700">
+                              Material request linked
+                            </span>
+                          )}
                         </div>
                         <p className="text-sm text-gray-500 mt-1">{order.title || order.supplier?.name || 'Purchase order'}</p>
                         <p className="text-xs text-gray-400 mt-1">Total {money(order.totalAmount)} · Supplier: {order.supplier?.name ?? order.supplierId}</p>
+                        {order.materialRequestId && (
+                          <p className="text-xs text-gray-400 mt-1">Request ID: {order.materialRequestId}</p>
+                        )}
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-semibold text-gray-900">{money(order.totalAmount)}</p>
@@ -807,8 +979,41 @@ export const ProcurementPanel = ({ projectId, canApprove, canEdit, initialMateri
                               <p className="text-sm font-semibold text-gray-900">{money(invoice.totalAmount)}</p>
                             </div>
 
+                            {!!invoiceAttachments[invoice.id]?.length && (
+                              <div className="flex flex-wrap gap-2">
+                                {invoiceAttachments[invoice.id].map((attachment: any) => (
+                                  <button
+                                    key={attachment.id}
+                                    type="button"
+                                    onClick={() => openAttachment(attachment.id)}
+                                    className="text-xs px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                                  >
+                                    {attachment.description || attachment.filename}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+
                             {canApprove && (
                               <div className="flex flex-wrap gap-2 justify-end">
+                                <label className="px-3 py-1.5 text-xs font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 cursor-pointer">
+                                  {uploadingInvoiceId === invoice.id
+                                    ? 'Uploading...'
+                                    : 'Upload Payment Proof'}
+                                  <input
+                                    type="file"
+                                    accept="image/*,.pdf"
+                                    className="hidden"
+                                    disabled={uploadingInvoiceId === invoice.id}
+                                    onChange={async (event) => {
+                                      const file = event.target.files?.[0];
+                                      if (file) {
+                                        await handleUploadInvoiceProof(invoice.id, file);
+                                        event.target.value = '';
+                                      }
+                                    }}
+                                  />
+                                </label>
                                 {invoice.status === 'received' && (
                                   <>
                                     <button
@@ -869,6 +1074,10 @@ export const ProcurementPanel = ({ projectId, canApprove, canEdit, initialMateri
                             <div>
                               <p className="text-sm font-medium text-gray-900">{receipt.status.replace('_', ' ')}</p>
                               <p className="text-xs text-gray-500">{new Date(receipt.receivedAt).toLocaleString()}</p>
+                              <p className="text-xs text-gray-400 mt-1">
+                                {receipt.destinationType === 'site' ? 'Sent to site' : 'Stored in store'}
+                                {receipt.destinationLabel ? ` · ${receipt.destinationLabel}` : ''}
+                              </p>
                             </div>
                             <p className="text-sm font-semibold text-gray-900">{receipt.items?.length ?? 0} items</p>
                           </div>
@@ -905,6 +1114,26 @@ export const ProcurementPanel = ({ projectId, canApprove, canEdit, initialMateri
                           <button type="button" onClick={() => setReceiptTarget(null)} className="text-xs text-gray-500 hover:text-gray-700">Close</button>
                         </div>
                         <textarea value={receiptForm.notes} onChange={(e) => setReceiptForm({ ...receiptForm, notes: e.target.value })} placeholder="Receipt notes" rows={2} className="w-full px-4 py-2.5 border border-amber-200 rounded-lg text-sm resize-none" />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <select
+                            value={receiptForm.destinationType}
+                            onChange={(e) => setReceiptForm({
+                              ...receiptForm,
+                              destinationType: e.target.value as GoodsReceiptDestinationType,
+                              destinationLabel: e.target.value === 'site' ? 'Project Site' : 'Main Store',
+                            })}
+                            className="w-full px-4 py-2.5 border border-amber-200 rounded-lg text-sm"
+                          >
+                            <option value="store">Receive into store</option>
+                            <option value="site">Send directly to site</option>
+                          </select>
+                          <input
+                            value={receiptForm.destinationLabel}
+                            onChange={(e) => setReceiptForm({ ...receiptForm, destinationLabel: e.target.value })}
+                            placeholder={receiptForm.destinationType === 'site' ? 'Site name or zone' : 'Store name / shelf'}
+                            className="w-full px-4 py-2.5 border border-amber-200 rounded-lg text-sm"
+                          />
+                        </div>
                         <div className="space-y-3">
                           {receiptForm.items.map((item, index) => (
                             <div key={`${index}-${item.name}`} className="border border-amber-100 bg-white rounded-lg p-3 space-y-2">
@@ -951,11 +1180,41 @@ export const ProcurementPanel = ({ projectId, canApprove, canEdit, initialMateri
                   <div>
                     <p className="text-sm font-medium text-gray-900">{item.name}</p>
                     <p className="text-xs text-gray-500">{Number(item.currentQuantity).toLocaleString()} {item.unit}</p>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      <span className={`text-[11px] px-2 py-1 rounded-full font-medium ${getStockStatusClass(item.stockStatus)}`}>
+                        {item.stockStatus.replace(/_/g, ' ')}
+                      </span>
+                      {item.allocationTarget && (
+                        <span className="text-[11px] px-2 py-1 rounded-full bg-blue-50 text-blue-700">
+                          {item.allocationTarget}
+                        </span>
+                      )}
+                    </div>
                     {item.location && <p className="text-xs text-gray-400 mt-0.5">Location: {item.location}</p>}
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-semibold text-gray-900">Reorder {Number(item.reorderLevel).toLocaleString()}</p>
                     <p className="text-xs text-gray-400">{money(item.currentQuantity)}</p>
+                    {canEdit && (
+                      <div className="flex gap-2 justify-end mt-2">
+                        <button
+                          type="button"
+                          onClick={() => handleTransferStock(item.id, 'available_in_store', item.location)}
+                          disabled={transferringStockId === item.id}
+                          className="px-2.5 py-1 text-[11px] rounded-lg bg-emerald-100 text-emerald-700 hover:bg-emerald-200 disabled:opacity-50"
+                        >
+                          To Store
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleTransferStock(item.id, 'allocated_to_site', item.location)}
+                          disabled={transferringStockId === item.id}
+                          className="px-2.5 py-1 text-[11px] rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 disabled:opacity-50"
+                        >
+                          To Site
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}

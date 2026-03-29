@@ -14,6 +14,8 @@ interface MaterialHistoryModalProps {
     name: string;
     unit: string;
     location: string;
+    allocationStatus: string;
+    allocationTarget: string;
     projects: MaterialHistoryProject[];
   } | null;
 }
@@ -74,6 +76,7 @@ const MaterialHistoryModal = ({ isOpen, onClose, material }: MaterialHistoryModa
       case 'in': return 'text-green-600 bg-green-50';
       case 'out': return 'text-red-600 bg-red-50';
       case 'adjustment': return 'text-blue-600 bg-blue-50';
+      case 'transfer': return 'text-amber-700 bg-amber-50';
       default: return 'text-gray-600 bg-gray-50';
     }
   };
@@ -83,6 +86,7 @@ const MaterialHistoryModal = ({ isOpen, onClose, material }: MaterialHistoryModa
       case 'in': return 'Stock In';
       case 'out': return 'Stock Out';
       case 'adjustment': return 'Adjustment';
+      case 'transfer': return 'Transfer';
       default: return type;
     }
   };
@@ -98,6 +102,12 @@ const MaterialHistoryModal = ({ isOpen, onClose, material }: MaterialHistoryModa
               <h2 className="text-xl font-semibold text-gray-900">Material History</h2>
               <p className="text-sm text-gray-500 mt-1">
                 {material.name} ({material.unit}) - {material.location}
+              </p>
+              <p className="text-xs text-gray-400 mt-1">
+                {material.allocationStatus}
+                {material.allocationTarget !== '—'
+                  ? ` · ${material.allocationTarget}`
+                  : ''}
               </p>
             </div>
             <button

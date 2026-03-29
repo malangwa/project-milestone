@@ -2,7 +2,12 @@ export type SupplierStatus = 'active' | 'inactive';
 export type PurchaseOrderStatus = 'draft' | 'pending_approval' | 'approved' | 'sent' | 'partially_received' | 'received' | 'closed' | 'cancelled';
 export type SupplierInvoiceStatus = 'received' | 'verified' | 'approved' | 'paid' | 'rejected';
 export type GoodsReceiptStatus = 'pending' | 'partial' | 'completed';
-export type StockMovementType = 'in' | 'out' | 'adjustment';
+export type GoodsReceiptDestinationType = 'store' | 'site';
+export type StockMovementType = 'in' | 'out' | 'adjustment' | 'transfer';
+export type StockStatus =
+  | 'available_in_store'
+  | 'allocated_to_site'
+  | 'allocated_to_project';
 
 export type Supplier = {
   id: string;
@@ -95,6 +100,8 @@ export type GoodsReceipt = {
   receivedById: string;
   receivedAt: string;
   notes?: string | null;
+  destinationType: GoodsReceiptDestinationType;
+  destinationLabel?: string | null;
   purchaseOrder?: PurchaseOrder;
   receivedBy?: { id: string; name: string; email: string; role: string };
   items: GoodsReceiptItem[];
@@ -109,6 +116,8 @@ export type StockItem = {
   unit: string;
   currentQuantity: number;
   reorderLevel: number;
+  stockStatus: StockStatus;
+  allocationTarget?: string | null;
   location?: string | null;
   notes?: string | null;
   createdAt: string;

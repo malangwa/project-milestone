@@ -30,6 +30,8 @@ class InventoryItemModel {
     required this.unit,
     required this.currentQuantity,
     required this.reorderLevel,
+    required this.stockStatus,
+    this.allocationTarget,
     this.location,
   });
 
@@ -40,6 +42,8 @@ class InventoryItemModel {
   final String unit;
   final double currentQuantity;
   final double reorderLevel;
+  final String stockStatus;
+  final String? allocationTarget;
   final String? location;
 
   bool get isLowStock => currentQuantity <= reorderLevel;
@@ -55,6 +59,8 @@ class InventoryItemModel {
           double.tryParse((json['currentQuantity'] ?? 0).toString()) ?? 0,
       reorderLevel:
           double.tryParse((json['reorderLevel'] ?? 0).toString()) ?? 0,
+      stockStatus: (json['stockStatus'] ?? 'available_in_store').toString(),
+      allocationTarget: json['allocationTarget']?.toString(),
       location: json['location']?.toString(),
     );
   }

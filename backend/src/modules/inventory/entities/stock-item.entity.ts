@@ -6,6 +6,12 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
+export enum StockStatus {
+  AVAILABLE_IN_STORE = 'available_in_store',
+  ALLOCATED_TO_SITE = 'allocated_to_site',
+  ALLOCATED_TO_PROJECT = 'allocated_to_project',
+}
+
 @Entity('stock_items')
 export class StockItem {
   @PrimaryGeneratedColumn('uuid')
@@ -40,6 +46,17 @@ export class StockItem {
 
   @Column({ type: 'varchar', nullable: true })
   location: string | null;
+
+  @Column({
+    name: 'stock_status',
+    type: 'enum',
+    enum: StockStatus,
+    default: StockStatus.AVAILABLE_IN_STORE,
+  })
+  stockStatus: StockStatus;
+
+  @Column({ name: 'allocation_target', type: 'varchar', nullable: true })
+  allocationTarget: string | null;
 
   @Column({ type: 'text', nullable: true })
   notes: string | null;

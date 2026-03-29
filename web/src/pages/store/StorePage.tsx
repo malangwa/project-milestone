@@ -11,6 +11,8 @@ type HistoryMaterial = {
   name: string;
   unit: string;
   location: string;
+  allocationStatus: string;
+  allocationTarget: string;
   projects: ProjectInfo[];
 };
 type GroupedMaterial = HistoryMaterial & {
@@ -191,7 +193,13 @@ const StorePage = () => {
     const map = new Map<string, GroupedMaterial>();
 
     for (const item of filteredItems) {
-      const key = [item.name.trim().toLowerCase(), item.unit.trim().toLowerCase(), (item.location || '').trim().toLowerCase()].join('|');
+      const key = [
+        item.name.trim().toLowerCase(),
+        item.unit.trim().toLowerCase(),
+        (item.location || '').trim().toLowerCase(),
+        (item.stockStatus || '').trim().toLowerCase(),
+        (item.allocationTarget || '').trim().toLowerCase(),
+      ].join('|');
       const existing = map.get(key);
       const quantity = Number(item.currentQuantity || 0);
       const reorderLevel = Number(item.reorderLevel || 0);
@@ -205,6 +213,8 @@ const StorePage = () => {
           name: item.name,
           unit: item.unit,
           location: item.location || '—',
+          allocationStatus: (item.stockStatus || 'available_in_store').replace(/_/g, ' '),
+          allocationTarget: item.allocationTarget || '—',
           quantity,
           projects: [{ id: item.projectId, name: item.projectName }],
           reorderLevel,
@@ -351,6 +361,8 @@ const StorePage = () => {
         name: item.name,
         unit: item.unit,
         location: item.location,
+      allocationStatus: item.allocationStatus,
+      allocationTarget: item.allocationTarget,
         projects: item.projects,
       },
     });
@@ -648,7 +660,8 @@ const StorePage = () => {
                 <th className="text-left px-5 py-3 font-semibold text-gray-600">Material</th>
                 <th className="text-right px-5 py-3 font-semibold text-gray-600">Quantity</th>
                 <th className="text-right px-5 py-3 font-semibold text-gray-600">Reorder</th>
-                <th className="text-left px-5 py-3 font-semibold text-gray-600">Status</th>
+                <th className="text-left px-5 py-3 font-semibold text-gray-600">Stock Level</th>
+                <th className="text-left px-5 py-3 font-semibold text-gray-600">Allocation</th>
                 <th className="text-left px-5 py-3 font-semibold text-gray-600">Projects</th>
                 <th className="text-left px-5 py-3 font-semibold text-gray-600">Location</th>
                 <th className="text-left px-5 py-3 font-semibold text-gray-600 w-20">Actions</th>
@@ -686,6 +699,16 @@ const StorePage = () => {
                       }`}>
                         {item.stockStatus === 'low_stock' ? 'Low Stock' : item.stockStatus === 'overstock' ? 'Overstock' : 'Normal'}
                       </span>
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <div className="space-y-1">
+                        <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-slate-100 text-slate-700">
+                          {item.allocationStatus}
+                        </span>
+                        {item.allocationTarget !== '—' && (
+                          <p className="text-xs text-gray-500">{item.allocationTarget}</p>
+                        )}
+                      </div>
                     </td>
                     <td className="px-5 py-3.5">
                       <div className="flex flex-wrap gap-2">

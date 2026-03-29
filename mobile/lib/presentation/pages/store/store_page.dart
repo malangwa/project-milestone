@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../data/models/inventory_model.dart';
 import '../../../data/services/inventory_service.dart';
-import '../../widgets/empty_state.dart';
 import '../../widgets/loading_indicator.dart';
 
 class StorePage extends StatefulWidget {
@@ -120,17 +119,26 @@ class _StorePageState extends State<StorePage> {
                           [
                             item.projectName,
                             '${item.currentQuantity.toStringAsFixed(0)} ${item.unit}',
+                            item.stockStatus.replaceAll('_', ' '),
+                            if ((item.allocationTarget ?? '').isNotEmpty)
+                              item.allocationTarget!,
                             if ((item.location ?? '').isNotEmpty) item.location!,
                           ].join(' • '),
                         ),
                       ),
                       trailing: Chip(
                         label: Text(
-                          item.isLowStock ? 'Low stock' : 'Normal',
+                          item.isLowStock
+                              ? 'Low stock'
+                              : item.stockStatus == 'available_in_store'
+                                  ? 'In store'
+                                  : 'Allocated',
                         ),
                         backgroundColor: item.isLowStock
                             ? Colors.red.withValues(alpha: 0.12)
-                            : Colors.green.withValues(alpha: 0.12),
+                            : item.stockStatus == 'available_in_store'
+                                ? Colors.green.withValues(alpha: 0.12)
+                                : Colors.orange.withValues(alpha: 0.12),
                         side: BorderSide.none,
                       ),
                     ),

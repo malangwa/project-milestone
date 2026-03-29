@@ -37,5 +37,7 @@ export const inventoryApi = {
   getByProject: (projectId: string) => api.get(`/projects/${projectId}/inventory`),
   getMovements: (projectId: string) => api.get(`/projects/${projectId}/inventory/movements`),
   adjust: (projectId: string, data: object) => api.post(`/projects/${projectId}/inventory/adjust`, data),
+  transfer: (projectId: string, stockItemId: string, data: object) =>
+    api.post(`/projects/${projectId}/inventory/${stockItemId}/transfer`, data),
   getGlobal: () => api.get('/inventory/global'),
 };

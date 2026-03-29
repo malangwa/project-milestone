@@ -17,6 +17,7 @@ import { InventoryService } from '../inventory/inventory.service';
 import { CreateGoodsReceiptDto } from './dto/create-goods-receipt.dto';
 import {
   GoodsReceipt,
+  GoodsReceiptDestinationType,
   GoodsReceiptStatus,
 } from './entities/goods-receipt.entity';
 import { GoodsReceiptItem } from './entities/goods-receipt-item.entity';
@@ -112,6 +113,9 @@ export class GoodsReceiptsService {
       purchaseOrderId,
       receivedById: userId,
       notes: dto.notes?.trim() || null,
+      destinationType:
+        dto.destinationType ?? GoodsReceiptDestinationType.STORE,
+      destinationLabel: dto.destinationLabel?.trim() || null,
       status: items.some((item) => item.acceptedQuantity < item.orderedQuantity)
         ? GoodsReceiptStatus.PARTIAL
         : GoodsReceiptStatus.COMPLETED,

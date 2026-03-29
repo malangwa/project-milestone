@@ -12,6 +12,11 @@ import { PurchaseOrder } from '../../purchase-orders/entities/purchase-order.ent
 import { User } from '../../users/entities/user.entity';
 import { GoodsReceiptItem } from './goods-receipt-item.entity';
 
+export enum GoodsReceiptDestinationType {
+  STORE = 'store',
+  SITE = 'site',
+}
+
 export enum GoodsReceiptStatus {
   PENDING = 'pending',
   PARTIAL = 'partial',
@@ -53,6 +58,17 @@ export class GoodsReceipt {
 
   @Column({ type: 'text', nullable: true })
   notes: string | null;
+
+  @Column({
+    name: 'destination_type',
+    type: 'enum',
+    enum: GoodsReceiptDestinationType,
+    default: GoodsReceiptDestinationType.STORE,
+  })
+  destinationType: GoodsReceiptDestinationType;
+
+  @Column({ name: 'destination_label', type: 'varchar', nullable: true })
+  destinationLabel: string | null;
 
   @OneToMany(() => GoodsReceiptItem, (item) => item.receipt, {
     cascade: true,

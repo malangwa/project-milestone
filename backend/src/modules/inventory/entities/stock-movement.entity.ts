@@ -13,6 +13,7 @@ export enum StockMovementType {
   IN = 'in',
   OUT = 'out',
   ADJUSTMENT = 'adjustment',
+  TRANSFER = 'transfer',
 }
 
 @Entity('stock_movements')

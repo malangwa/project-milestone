@@ -1,14 +1,22 @@
-import { Injectable, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ProjectsService } from '../projects/projects.service';
 import { Project } from '../projects/entities/project.entity';
 import { UserRole } from '../users/entities/user.entity';
-import { GoodsReceipt } from '../goods-receipts/entities/goods-receipt.entity';
+import {
+  GoodsReceipt,
+  GoodsReceiptDestinationType,
+} from '../goods-receipts/entities/goods-receipt.entity';
 import { GoodsReceiptItem } from '../goods-receipts/entities/goods-receipt-item.entity';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { AdjustStockDto } from './dto/adjust-stock.dto';
-import { StockItem } from './entities/stock-item.entity';
+import { TransferStockDto } from './dto/transfer-stock.dto';
+import { StockItem, StockStatus } from './entities/stock-item.entity';
 import {
   StockMovement,
   StockMovementType,
@@ -37,6 +45,10 @@ export class InventoryService {
       role === UserRole.MANAGER ||
       project.ownerId === userId
     );
+  }
+
+  private getStatusLabel(stockStatus: StockStatus): string {
+    return stockStatus.replace(/_/g, ' ');
   }
 
   async findByProject(
@@ -124,6 +136,8 @@ export class InventoryService {
         currentQuantity: 0,
         reorderLevel: Number(dto.reorderLevel ?? 0),
         location: dto.location?.trim() || null,
+        stockStatus: StockStatus.AVAILABLE_IN_STORE,
+        allocationTarget: null,
         notes: dto.notes?.trim() || null,
       } as StockItem);
 
@@ -138,6 +152,12 @@ export class InventoryService {
     }
     if (dto.notes !== undefined) {
       stock.notes = dto.notes?.trim() || null;
+    }
+    if (!stock.stockStatus) {
+      stock.stockStatus = StockStatus.AVAILABLE_IN_STORE;
+    }
+    if (stock.stockStatus === StockStatus.AVAILABLE_IN_STORE) {
+      stock.allocationTarget = null;
     }
 
     const saved = await this.stockRepo.save(stock as unknown as StockItem);
@@ -191,8 +211,93 @@ export class InventoryService {
         unit: saved.unit,
         currentQuantity: saved.currentQuantity,
         reorderLevel: saved.reorderLevel,
+        stockStatus: saved.stockStatus,
+        allocationTarget: saved.allocationTarget,
         location: saved.location,
         notes: saved.notes,
+      },
+    });
+
+    return saved;
+  }
+
+  async transfer(
+    projectId: string,
+    stockItemId: string,
+    dto: TransferStockDto,
+    userId: string,
+    role: UserRole,
+  ): Promise<StockItem> {
+    const project = await this.projectsService.findOne(projectId, userId, role);
+    if (!this.canManageProject(project, userId, role)) {
+      throw new ForbiddenException('Not authorized to transfer stock');
+    }
+
+    const stock = await this.stockRepo.findOne({
+      where: { id: stockItemId, projectId },
+    });
+    if (!stock) {
+      throw new NotFoundException('Stock item not found');
+    }
+
+    const before = {
+      stockStatus: stock.stockStatus,
+      location: stock.location,
+      allocationTarget: stock.allocationTarget,
+    };
+
+    stock.stockStatus = dto.stockStatus;
+    stock.location = dto.location?.trim() || null;
+    stock.allocationTarget =
+      dto.stockStatus === StockStatus.AVAILABLE_IN_STORE
+        ? null
+        : dto.allocationTarget?.trim() || null;
+    if (dto.notes !== undefined) {
+      stock.notes = dto.notes?.trim() || null;
+    }
+
+    const saved = await this.stockRepo.save(stock);
+    const movement = await this.movementsRepo.save(
+      this.movementsRepo.create({
+        stockItemId: saved.id,
+        type: StockMovementType.TRANSFER,
+        quantity: 0,
+        referenceType: 'stock_transfer',
+        referenceId: null,
+        notes:
+          dto.notes?.trim() ||
+          `Moved to ${this.getStatusLabel(saved.stockStatus)}${
+            saved.location ? ` (${saved.location})` : ''
+          }`,
+        createdById: userId,
+      } as any) as any,
+    );
+
+    this.inventoryGateway.broadcastInventoryUpdate(projectId, {
+      type: 'stock_transfer',
+      item: saved,
+      movement,
+      projectId,
+    });
+
+    this.inventoryGateway.broadcastStockMovement(projectId, {
+      type: 'stock_transfer',
+      item: saved,
+      movement,
+      quantity: 0,
+      projectId,
+    });
+
+    await this.auditLogsService.log({
+      userId,
+      action: 'transfer',
+      entityType: 'stock_item',
+      entityId: saved.id,
+      before,
+      after: {
+        stockStatus: saved.stockStatus,
+        location: saved.location,
+        allocationTarget: saved.allocationTarget,
       },
     });
 
@@ -205,6 +310,8 @@ export class InventoryService {
         receipt.purchaseOrder.projectId,
         item,
         receipt.id,
+        receipt.destinationType,
+        receipt.destinationLabel,
         userId,
       );
     }
@@ -222,10 +329,32 @@ export class InventoryService {
     projectId: string,
     item: GoodsReceiptItem,
     receiptId: string,
+    destinationType: GoodsReceiptDestinationType,
+    destinationLabel: string | null,
     userId: string,
   ): Promise<void> {
+    const normalizedDestinationLabel = destinationLabel?.trim() || null;
+    const targetStatus =
+      destinationType === GoodsReceiptDestinationType.SITE
+        ? StockStatus.ALLOCATED_TO_SITE
+        : StockStatus.AVAILABLE_IN_STORE;
+    const targetLocation =
+      destinationType === GoodsReceiptDestinationType.SITE
+        ? normalizedDestinationLabel || 'Site'
+        : normalizedDestinationLabel || 'Main Store';
+    const targetAllocation =
+      destinationType === GoodsReceiptDestinationType.SITE
+        ? normalizedDestinationLabel
+        : null;
     const existingStock = (await this.stockRepo.findOne({
-      where: { projectId, name: item.name, unit: item.unit },
+      where: {
+        projectId,
+        name: item.name,
+        unit: item.unit,
+        stockStatus: targetStatus,
+        location: targetLocation,
+        allocationTarget: targetAllocation ?? undefined,
+      },
     })) as unknown as StockItem | null;
     const stock =
       existingStock ??
@@ -236,12 +365,17 @@ export class InventoryService {
         currentQuantity: 0,
         reorderLevel: 0,
         location: null,
+        stockStatus: StockStatus.AVAILABLE_IN_STORE,
+        allocationTarget: null,
         notes: null,
       } as StockItem);
 
     const acceptedQuantity = Number(item.acceptedQuantity);
     const oldQuantity = Number(stock.currentQuantity);
     stock.currentQuantity = Number(stock.currentQuantity) + acceptedQuantity;
+    stock.stockStatus = targetStatus;
+    stock.location = targetLocation;
+    stock.allocationTarget = targetAllocation;
     const saved = await this.stockRepo.save(stock);
 
     const movement = await this.movementsRepo.save(
@@ -251,7 +385,11 @@ export class InventoryService {
         quantity: acceptedQuantity,
         referenceType: 'goods_receipt',
         referenceId: receiptId,
-        notes: item.notes ?? null,
+        notes:
+          item.notes ??
+          `Received into ${destinationType}${
+            targetLocation ? `: ${targetLocation}` : ''
+          }`,
         createdById: userId,
       } as any) as any,
     );

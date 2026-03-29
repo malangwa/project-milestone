@@ -4,6 +4,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { User } from '../users/entities/user.entity';
 import { AdjustStockDto } from './dto/adjust-stock.dto';
+import { TransferStockDto } from './dto/transfer-stock.dto';
 import { InventoryService } from './inventory.service';
 
 @ApiTags('inventory')
@@ -45,5 +46,22 @@ export class InventoryController {
     @CurrentUser() user: User,
   ) {
     return this.inventoryService.adjust(projectId, dto, user.id, user.role);
+  }
+
+  @Post('projects/:projectId/inventory/:stockItemId/transfer')
+  @ApiOperation({ summary: 'Transfer stock between store and site' })
+  transfer(
+    @Param('projectId') projectId: string,
+    @Param('stockItemId') stockItemId: string,
+    @Body() dto: TransferStockDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.inventoryService.transfer(
+      projectId,
+      stockItemId,
+      dto,
+      user.id,
+      user.role,
+    );
   }
 }
