@@ -5,6 +5,7 @@ class ExpenseModel {
     required this.category,
     required this.amount,
     required this.status,
+    this.title,
     this.description,
     this.submittedByName,
     this.approvedByName,
@@ -17,6 +18,7 @@ class ExpenseModel {
   final String category;
   final double amount;
   final String status;
+  final String? title;
   final String? description;
   final String? submittedByName;
   final String? approvedByName;
@@ -29,6 +31,7 @@ class ExpenseModel {
     return ExpenseModel(
       id: (json['id'] ?? '').toString(),
       projectId: (json['projectId'] ?? '').toString(),
+      title: json['title']?.toString(),
       category: (json['category'] ?? '').toString(),
       amount: double.tryParse((json['amount'] ?? 0).toString()) ?? 0,
       status: (json['status'] ?? 'pending').toString(),

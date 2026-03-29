@@ -29,7 +29,7 @@ class IssueModel {
       projectId: (json['projectId'] ?? '').toString(),
       title: (json['title'] ?? '').toString(),
       status: (json['status'] ?? 'open').toString(),
-      severity: (json['severity'] ?? 'medium').toString(),
+      severity: (json['priority'] ?? json['severity'] ?? 'medium').toString(),
       description: json['description']?.toString(),
       reportedByName: reportedBy?['name']?.toString(),
       assignedToName: assignedTo?['name']?.toString(),

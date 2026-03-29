@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../data/models/inventory_model.dart';
 import '../../../data/services/inventory_service.dart';
+import '../../widgets/empty_state.dart';
+import '../../widgets/loading_indicator.dart';
 
 class StorePage extends StatefulWidget {
   const StorePage({super.key});
@@ -17,33 +19,32 @@ class _StorePageState extends State<StorePage> {
   @override
   void initState() {
     super.initState();
-    _future = InventoryService.instance.getGlobalInventory();
+    _future = _load();
+  }
+
+  Future<InventoryOverviewModel> _load() async {
+    try {
+      return await InventoryService.instance.getGlobalInventory();
+    } catch (_) {
+      return const InventoryOverviewModel(items: [], projects: []);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return RefreshIndicator(
       onRefresh: () async {
-        setState(() => _future = InventoryService.instance.getGlobalInventory());
+        setState(() => _future = _load());
         await _future;
       },
       child: FutureBuilder<InventoryOverviewModel>(
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const LoadingIndicator(message: 'Loading store...');
           }
 
-          if (snapshot.hasError) {
-            return ListView(
-              children: const [
-                SizedBox(height: 160),
-                Center(child: Text('Failed to load store inventory')),
-              ],
-            );
-          }
-
-          final overview = snapshot.data!;
+          final overview = snapshot.data ?? const InventoryOverviewModel(items: [], projects: []);
           final items = _onlyLowStock
               ? overview.items.where((item) => item.isLowStock).toList()
               : overview.items;
@@ -104,7 +105,7 @@ class _StorePageState extends State<StorePage> {
                 const Card(
                   child: Padding(
                     padding: EdgeInsets.all(24),
-                    child: Text('No inventory items match the current filter.'),
+                    child: Text('No materials found matching your criteria.'),
                   ),
                 )
               else

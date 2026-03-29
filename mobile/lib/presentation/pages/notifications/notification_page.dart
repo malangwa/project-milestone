@@ -3,6 +3,8 @@ import 'package:intl/intl.dart';
 
 import '../../../data/models/notification_model.dart';
 import '../../../data/services/notification_service.dart';
+import '../../widgets/empty_state.dart';
+import '../../widgets/loading_indicator.dart';
 
 class NotificationPage extends StatefulWidget {
   const NotificationPage({super.key});
@@ -17,13 +19,21 @@ class _NotificationPageState extends State<NotificationPage> {
   @override
   void initState() {
     super.initState();
-    _future = NotificationService.instance.getAll();
+    _future = _loadNotifications();
+  }
+
+  Future<List<NotificationModel>> _loadNotifications() async {
+    try {
+      return await NotificationService.instance.getAll();
+    } catch (_) {
+      return [];
+    }
   }
 
   Future<void> _markAllRead() async {
     try {
       await NotificationService.instance.markAllRead();
-      setState(() => _future = NotificationService.instance.getAll());
+      setState(() => _future = _loadNotifications());
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -36,7 +46,7 @@ class _NotificationPageState extends State<NotificationPage> {
   Future<void> _markRead(String id) async {
     try {
       await NotificationService.instance.markRead(id);
-      setState(() => _future = NotificationService.instance.getAll());
+      setState(() => _future = _loadNotifications());
     } catch (_) {
       // silently fail for single item
     }
@@ -58,31 +68,25 @@ class _NotificationPageState extends State<NotificationPage> {
       ),
       body: RefreshIndicator(
         onRefresh: () async {
-          setState(() => _future = NotificationService.instance.getAll());
+          setState(() => _future = _loadNotifications());
           await _future;
         },
         child: FutureBuilder<List<NotificationModel>>(
           future: _future,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+              return const LoadingIndicator(message: 'Loading notifications...');
             }
-            if (snapshot.hasError) {
-              return ListView(
-                children: const [
-                  SizedBox(height: 160),
-                  Center(child: Text('Failed to load notifications')),
-                ],
-              );
-            }
-
             final notifications =
                 snapshot.data ?? const <NotificationModel>[];
-            if (notifications.isEmpty) {
+            if (snapshot.hasError || notifications.isEmpty) {
               return ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
                 children: const [
-                  SizedBox(height: 160),
-                  Center(child: Text('No notifications yet.')),
+                  EmptyState(
+                    icon: Icons.notifications_outlined,
+                    title: 'No notifications yet.',
+                  ),
                 ],
               );
             }

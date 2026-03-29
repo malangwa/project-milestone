@@ -23,7 +23,7 @@ class MilestoneModel {
     return MilestoneModel(
       id: (json['id'] ?? '').toString(),
       projectId: (json['projectId'] ?? '').toString(),
-      title: (json['title'] ?? '').toString(),
+      title: (json['name'] ?? json['title'] ?? '').toString(),
       status: (json['status'] ?? 'pending').toString(),
       description: json['description']?.toString(),
       dueDate: json['dueDate']?.toString(),

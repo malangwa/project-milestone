@@ -11,14 +11,14 @@ class ReportService {
   final Dio _dio = DioClient.instance.dio;
 
   Future<OverviewSummaryModel> getOverview() async {
-    final response = await _dio.get<Map<String, dynamic>>('/reports/overview');
+    final response = await _dio.get<dynamic>('/reports/overview');
     final payload = _unwrapMap(response.data);
     return OverviewSummaryModel.fromJson(payload);
   }
 
   Future<ProjectSummaryModel> getProjectSummary(String projectId) async {
     final response =
-        await _dio.get<Map<String, dynamic>>('/reports/project/$projectId');
+        await _dio.get<dynamic>('/reports/project/$projectId');
     final payload = _unwrapMap(response.data);
     return ProjectSummaryModel.fromJson(payload);
   }

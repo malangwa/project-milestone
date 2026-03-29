@@ -11,22 +11,56 @@ class ProjectService {
   final Dio _dio = DioClient.instance.dio;
 
   Future<List<ProjectModel>> getProjects() async {
-    final response = await _dio.get<Map<String, dynamic>>('/projects');
+    final response = await _dio.get<dynamic>('/projects');
     final payload = _unwrapList(response.data);
     return payload.map(ProjectModel.fromJson).toList();
   }
 
   Future<ProjectModel> getProject(String id) async {
-    final response = await _dio.get<Map<String, dynamic>>('/projects/$id');
+    final response = await _dio.get<dynamic>('/projects/$id');
     final payload = _unwrapMap(response.data);
     return ProjectModel.fromJson(payload);
   }
 
   Future<List<ProjectMemberModel>> getMembers(String projectId) async {
-    final response =
-        await _dio.get<Map<String, dynamic>>('/projects/$projectId/members');
+    final response = await _dio.get<dynamic>(
+      '/projects/$projectId/members',
+    );
     final payload = _unwrapList(response.data);
     return payload.map(ProjectMemberModel.fromJson).toList();
+  }
+
+  Future<ProjectModel> create(Map<String, dynamic> data) async {
+    final response = await _dio.post<dynamic>(
+      '/projects',
+      data: data,
+    );
+    final payload = _unwrapMap(response.data);
+    return ProjectModel.fromJson(payload);
+  }
+
+  Future<ProjectModel> update(String id, Map<String, dynamic> data) async {
+    final response = await _dio.patch<dynamic>(
+      '/projects/$id',
+      data: data,
+    );
+    final payload = _unwrapMap(response.data);
+    return ProjectModel.fromJson(payload);
+  }
+
+  Future<void> delete(String id) async {
+    await _dio.delete<void>('/projects/$id');
+  }
+
+  Future<void> addMember(String projectId, String email, {String? role}) async {
+    await _dio.post<void>('/projects/$projectId/members', data: {
+      'email': email,
+      if (role != null) 'role': role,
+    });
+  }
+
+  Future<void> removeMember(String projectId, String memberUserId) async {
+    await _dio.delete<void>('/projects/$projectId/members/$memberUserId');
   }
 
   List<Map<String, dynamic>> _unwrapList(dynamic data) {

@@ -12,15 +12,27 @@ class MilestoneService {
 
   Future<List<MilestoneModel>> getByProject(String projectId) async {
     final response = await _dio
-        .get<Map<String, dynamic>>('/milestones/project/$projectId');
+        .get<dynamic>('/milestones/project/$projectId');
     final payload = _unwrapList(response.data);
     return payload.map(MilestoneModel.fromJson).toList();
   }
 
   Future<MilestoneModel> getById(String id) async {
-    final response = await _dio.get<Map<String, dynamic>>('/milestones/$id');
+    final response = await _dio.get<dynamic>('/milestones/$id');
     final payload = _unwrapMap(response.data);
     return MilestoneModel.fromJson(payload);
+  }
+
+  Future<void> create(Map<String, dynamic> data) async {
+    await _dio.post<dynamic>('/milestones', data: data);
+  }
+
+  Future<void> update(String id, Map<String, dynamic> data) async {
+    await _dio.patch<dynamic>('/milestones/$id', data: data);
+  }
+
+  Future<void> delete(String id) async {
+    await _dio.delete<void>('/milestones/$id');
   }
 
   List<Map<String, dynamic>> _unwrapList(dynamic data) {

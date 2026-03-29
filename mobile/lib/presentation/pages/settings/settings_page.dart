@@ -41,7 +41,7 @@ class SettingsPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Chip(
-                    label: Text(user?.role.toUpperCase() ?? ''),
+                    label: Text(user?.role?.toUpperCase() ?? ''),
                     backgroundColor: Theme.of(context)
                         .colorScheme
                         .primaryContainer

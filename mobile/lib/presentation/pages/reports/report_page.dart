@@ -5,6 +5,8 @@ import '../../../data/models/project_model.dart';
 import '../../../data/models/report_model.dart';
 import '../../../data/services/project_service.dart';
 import '../../../data/services/report_service.dart';
+import '../../widgets/empty_state.dart';
+import '../../widgets/loading_indicator.dart';
 
 class ReportPage extends StatefulWidget {
   const ReportPage({super.key});
@@ -25,13 +27,17 @@ class _ReportPageState extends State<ReportPage> {
   }
 
   Future<List<ProjectModel>> _loadProjects() async {
-    final projects = await ProjectService.instance.getProjects();
-    if (projects.isNotEmpty && _selectedProjectId == null) {
-      _selectedProjectId = projects.first.id;
-      _summaryFuture =
-          ReportService.instance.getProjectSummary(_selectedProjectId!);
+    try {
+      final projects = await ProjectService.instance.getProjects();
+      if (projects.isNotEmpty && _selectedProjectId == null) {
+        _selectedProjectId = projects.first.id;
+        _summaryFuture =
+            ReportService.instance.getProjectSummary(_selectedProjectId!);
+      }
+      return projects;
+    } catch (_) {
+      return [];
     }
-    return projects;
   }
 
   @override
@@ -42,12 +48,16 @@ class _ReportPageState extends State<ReportPage> {
       future: _projectsFuture,
       builder: (context, projectSnapshot) {
         if (projectSnapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const LoadingIndicator(message: 'Loading report...');
         }
 
         final projects = projectSnapshot.data ?? const <ProjectModel>[];
-        if (projects.isEmpty) {
-          return const Center(child: Text('No projects available for reporting.'));
+        if (projectSnapshot.hasError || projects.isEmpty) {
+          return EmptyState(
+            icon: Icons.bar_chart_outlined,
+            title: 'Select a project to view its report.',
+            onRetry: () => setState(() => _projectsFuture = _loadProjects()),
+          );
         }
 
         return Column(
@@ -92,14 +102,24 @@ class _ReportPageState extends State<ReportPage> {
                   future: _summaryFuture,
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator());
+                      return const LoadingIndicator(message: 'Loading report...');
                     }
 
                     if (snapshot.hasError || !snapshot.hasData) {
                       return ListView(
-                        children: const [
-                          SizedBox(height: 160),
-                          Center(child: Text('Failed to load project report')),
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        children: [
+                          EmptyState(
+                            icon: Icons.bar_chart_outlined,
+                            title: 'Select a project to view its report.',
+                            onRetry: () {
+                              if (_selectedProjectId == null) return;
+                              setState(() {
+                                _summaryFuture = ReportService.instance
+                                    .getProjectSummary(_selectedProjectId!);
+                              });
+                            },
+                          ),
                         ],
                       );
                     }

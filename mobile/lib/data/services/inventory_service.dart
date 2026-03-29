@@ -11,7 +11,7 @@ class InventoryService {
   final Dio _dio = DioClient.instance.dio;
 
   Future<InventoryOverviewModel> getGlobalInventory() async {
-    final response = await _dio.get<Map<String, dynamic>>('/inventory/global');
+    final response = await _dio.get<dynamic>('/inventory/global');
     final payload = _unwrapMap(response.data);
     return InventoryOverviewModel.fromJson(payload);
   }

@@ -6,6 +6,8 @@ import '../../../data/models/project_model.dart';
 import '../../../data/services/expense_service.dart';
 import '../../../data/services/project_service.dart';
 import '../../../data/services/session_controller.dart';
+import '../../widgets/empty_state.dart';
+import '../../widgets/loading_indicator.dart';
 
 class ExpenseListPage extends StatefulWidget {
   const ExpenseListPage({super.key});
@@ -26,13 +28,17 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
   }
 
   Future<List<ProjectModel>> _loadProjects() async {
-    final projects = await ProjectService.instance.getProjects();
-    if (projects.isNotEmpty && _selectedProjectId == null) {
-      _selectedProjectId = projects.first.id;
-      _expensesFuture =
-          ExpenseService.instance.getByProject(_selectedProjectId!);
+    try {
+      final projects = await ProjectService.instance.getProjects();
+      if (projects.isNotEmpty && _selectedProjectId == null) {
+        _selectedProjectId = projects.first.id;
+        _expensesFuture =
+            ExpenseService.instance.getByProject(_selectedProjectId!);
+      }
+      return projects;
+    } catch (_) {
+      return [];
     }
-    return projects;
   }
 
   void _onProjectChanged(String? projectId) {
@@ -56,6 +62,17 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
               ExpenseService.instance.getByProject(_selectedProjectId!);
         });
       }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              action == 'approve'
+                  ? 'Expense approved'
+                  : 'Expense rejected',
+            ),
+          ),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -63,6 +80,243 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
         );
       }
     }
+  }
+
+  void _refreshExpenses() {
+    if (_selectedProjectId == null) return;
+    setState(() {
+      _expensesFuture =
+          ExpenseService.instance.getByProject(_selectedProjectId!);
+    });
+  }
+
+  Future<void> _confirmDeleteExpense(ExpenseModel expense) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete expense'),
+        content: const Text(
+          'Are you sure you want to delete this expense? This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    try {
+      await ExpenseService.instance.delete(expense.id);
+      _refreshExpenses();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Expense deleted')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to delete expense')),
+        );
+      }
+    }
+  }
+
+  void _showCreateExpenseSheet(BuildContext pageContext) {
+    final projectId = _selectedProjectId;
+    if (projectId == null) return;
+
+    final titleCtrl = TextEditingController();
+    final amountCtrl = TextEditingController();
+    final notesCtrl = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    var category = 'labor';
+    var selectedDate = DateTime.now();
+
+    showModalBottomSheet<void>(
+      context: pageContext,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (modalContext, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 16,
+                bottom: MediaQuery.viewInsetsOf(modalContext).bottom + 16,
+              ),
+              child: Form(
+                key: formKey,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        'New expense',
+                        style: Theme.of(modalContext).textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: titleCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Title',
+                          border: OutlineInputBorder(),
+                        ),
+                        textCapitalization: TextCapitalization.sentences,
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'Title is required'
+                            : null,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: amountCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: const InputDecoration(
+                          labelText: 'Amount',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) {
+                            return 'Amount is required';
+                          }
+                          if (double.tryParse(v.trim()) == null) {
+                            return 'Enter a valid number';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        key: ValueKey(category),
+                        initialValue: category,
+                        decoration: const InputDecoration(
+                          labelText: 'Category',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'labor',
+                            child: Text('Labor'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'material',
+                            child: Text('Material'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'equipment',
+                            child: Text('Equipment'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'travel',
+                            child: Text('Travel'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'other',
+                            child: Text('Other'),
+                          ),
+                        ],
+                        onChanged: (v) {
+                          if (v != null) {
+                            setModalState(() => category = v);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Date'),
+                        subtitle: Text(
+                          DateFormat.yMMMd().format(selectedDate),
+                        ),
+                        trailing: const Icon(Icons.calendar_today),
+                        onTap: () async {
+                          final picked = await showDatePicker(
+                            context: modalContext,
+                            initialDate: selectedDate,
+                            firstDate: DateTime(2000),
+                            lastDate: DateTime(2100),
+                          );
+                          if (picked != null) {
+                            setModalState(() => selectedDate = picked);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: notesCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Notes',
+                          border: OutlineInputBorder(),
+                        ),
+                        maxLines: 3,
+                      ),
+                      const SizedBox(height: 20),
+                      FilledButton(
+                        onPressed: () async {
+                          if (formKey.currentState?.validate() != true) {
+                            return;
+                          }
+                          final amount = double.parse(amountCtrl.text.trim());
+                          final body = <String, dynamic>{
+                            'projectId': projectId,
+                            'title': titleCtrl.text.trim(),
+                            'amount': amount,
+                            'category': category,
+                            'date': DateFormat('yyyy-MM-dd').format(
+                              selectedDate,
+                            ),
+                          };
+                          final notes = notesCtrl.text.trim();
+                          if (notes.isNotEmpty) {
+                            body['notes'] = notes;
+                          }
+                          try {
+                            await ExpenseService.instance.create(body);
+                            if (sheetContext.mounted) {
+                              Navigator.pop(sheetContext);
+                            }
+                            if (!mounted) return;
+                            _refreshExpenses();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Expense created'),
+                              ),
+                            );
+                          } catch (_) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Failed to create expense'),
+                                ),
+                              );
+                            }
+                          }
+                        },
+                        child: const Text('Create'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    ).whenComplete(() {
+      titleCtrl.dispose();
+      amountCtrl.dispose();
+      notesCtrl.dispose();
+    });
   }
 
   @override
@@ -75,66 +329,78 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
       future: _projectsFuture,
       builder: (context, projectSnapshot) {
         if (projectSnapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const LoadingIndicator(message: 'Loading expenses...');
         }
-        if (projectSnapshot.hasError) {
-          return const Center(child: Text('Failed to load projects'));
-        }
-
         final projects = projectSnapshot.data ?? const <ProjectModel>[];
-        if (projects.isEmpty) {
-          return const Center(
-            child: Text('No projects available.'),
+        if (projectSnapshot.hasError || projects.isEmpty) {
+          return EmptyState(
+            icon: Icons.folder_open,
+            title: 'No projects yet.',
+            subtitle: 'Create your first project to track expenses',
+            onRetry: () => setState(() => _projectsFuture = _loadProjects()),
           );
         }
 
-        return Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: DropdownButtonFormField<String>(
-                initialValue: _selectedProjectId,
-                decoration: const InputDecoration(
-                  labelText: 'Project',
-                  border: OutlineInputBorder(),
+        return Scaffold(
+          floatingActionButton: _selectedProjectId != null
+              ? FloatingActionButton(
+                  onPressed: () => _showCreateExpenseSheet(context),
+                  tooltip: 'New expense',
+                  child: const Icon(Icons.add),
+                )
+              : null,
+          body: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: DropdownButtonFormField<String>(
+                  initialValue: _selectedProjectId,
+                  decoration: const InputDecoration(
+                    labelText: 'Project',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: projects
+                      .map(
+                        (p) => DropdownMenuItem(
+                          value: p.id,
+                          child: Text(p.name),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: _onProjectChanged,
                 ),
-                items: projects
-                    .map((p) => DropdownMenuItem(value: p.id, child: Text(p.name)))
-                    .toList(),
-                onChanged: _onProjectChanged,
               ),
-            ),
-            Expanded(
-              child: RefreshIndicator(
-                onRefresh: () async {
-                  if (_selectedProjectId == null) return;
-                  setState(() {
-                    _expensesFuture = ExpenseService.instance
-                        .getByProject(_selectedProjectId!);
-                  });
-                  await _expensesFuture;
-                },
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: () async {
+                    if (_selectedProjectId == null) return;
+                    setState(() {
+                      _expensesFuture = ExpenseService.instance
+                          .getByProject(_selectedProjectId!);
+                    });
+                    await _expensesFuture;
+                  },
                 child: FutureBuilder<List<ExpenseModel>>(
                   future: _expensesFuture,
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator());
+                      return const LoadingIndicator(message: 'Loading expenses...');
                     }
-                    if (snapshot.hasError) {
-                      return ListView(
-                        children: const [
-                          SizedBox(height: 160),
-                          Center(child: Text('Failed to load expenses')),
-                        ],
-                      );
-                    }
-
                     final expenses = snapshot.data ?? const <ExpenseModel>[];
-                    if (expenses.isEmpty) {
+                    if (snapshot.hasError || expenses.isEmpty) {
                       return ListView(
-                        children: const [
-                          SizedBox(height: 160),
-                          Center(child: Text('No expenses recorded for this project.')),
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        children: [
+                          EmptyState(
+                            icon: Icons.receipt_long_outlined,
+                            title: 'No expenses for this project.',
+                            onRetry: _selectedProjectId == null ? null : () {
+                              setState(() {
+                                _expensesFuture = ExpenseService.instance
+                                    .getByProject(_selectedProjectId!);
+                              });
+                            },
+                          ),
                         ],
                       );
                     }
@@ -205,7 +471,11 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
                           (expense) => Card(
                             child: ListTile(
                               contentPadding: const EdgeInsets.all(16),
-                              title: Text(expense.category),
+                              title: Text(
+                                (expense.title ?? '').trim().isNotEmpty
+                                    ? expense.title!.trim()
+                                    : expense.category,
+                              ),
                               subtitle: Padding(
                                 padding: const EdgeInsets.only(top: 6),
                                 child: Column(
@@ -244,8 +514,27 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
                                   ],
                                 ),
                               ),
-                              trailing: _ExpenseStatusChip(
-                                status: expense.status,
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  _ExpenseStatusChip(
+                                    status: expense.status,
+                                  ),
+                                  PopupMenuButton<String>(
+                                    icon: const Icon(Icons.more_vert),
+                                    onSelected: (value) {
+                                      if (value == 'delete') {
+                                        _confirmDeleteExpense(expense);
+                                      }
+                                    },
+                                    itemBuilder: (ctx) => [
+                                      const PopupMenuItem<String>(
+                                        value: 'delete',
+                                        child: Text('Delete'),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ),
                             ),
                           ),
@@ -257,6 +546,7 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
               ),
             ),
           ],
+          ),
         );
       },
     );

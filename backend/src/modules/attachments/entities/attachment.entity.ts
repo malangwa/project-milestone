@@ -26,6 +26,9 @@ export class Attachment {
   url: string;
 
   @Column({ type: 'varchar', nullable: true })
+  storageKey: string;
+
+  @Column({ type: 'varchar', nullable: true })
   mimeType: string;
 
   @Column({ type: 'int', nullable: true })

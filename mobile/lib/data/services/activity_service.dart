@@ -12,7 +12,7 @@ class ActivityService {
 
   Future<List<ActivityModel>> getByProject(String projectId) async {
     final response = await _dio
-        .get<Map<String, dynamic>>('/activities/project/$projectId');
+        .get<dynamic>('/activities/project/$projectId');
     final payload = _unwrapList(response.data);
     return payload.map(ActivityModel.fromJson).toList();
   }

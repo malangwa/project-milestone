@@ -5,9 +5,11 @@ import '../presentation/pages/auth/register_page.dart';
 import '../presentation/pages/notifications/notification_page.dart';
 import '../presentation/pages/projects/project_detail_page.dart';
 import '../presentation/pages/settings/settings_page.dart';
+import '../presentation/pages/splash/splash_page.dart';
 import '../presentation/widgets/home_shell.dart';
 
 class AppRoutes {
+  static const String splash = '/';
   static const String login = '/login';
   static const String register = '/register';
   static const String home = '/home';
@@ -17,6 +19,11 @@ class AppRoutes {
 
   static Route<dynamic> onGenerateRoute(RouteSettings routeSettings) {
     switch (routeSettings.name) {
+      case splash:
+        return MaterialPageRoute<void>(
+          builder: (_) => const SplashPage(),
+          settings: routeSettings,
+        );
       case login:
         return MaterialPageRoute<void>(
           builder: (_) => const LoginPage(),

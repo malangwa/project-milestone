@@ -11,14 +11,14 @@ class NotificationService {
   final Dio _dio = DioClient.instance.dio;
 
   Future<List<NotificationModel>> getAll() async {
-    final response = await _dio.get<Map<String, dynamic>>('/notifications');
+    final response = await _dio.get<dynamic>('/notifications');
     final payload = _unwrapList(response.data);
     return payload.map(NotificationModel.fromJson).toList();
   }
 
   Future<int> getUnreadCount() async {
     final response =
-        await _dio.get<Map<String, dynamic>>('/notifications/unread-count');
+        await _dio.get<dynamic>('/notifications/unread-count');
     if (response.data is Map<String, dynamic>) {
       final data = response.data!;
       return (data['count'] ?? data['data'] ?? 0) as int;

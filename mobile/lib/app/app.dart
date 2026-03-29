@@ -39,9 +39,7 @@ class ProjectMilestoneApp extends StatelessWidget {
             ),
           ),
           onGenerateRoute: AppRoutes.onGenerateRoute,
-          initialRoute: sessionController.isAuthenticated
-              ? AppRoutes.home
-              : AppRoutes.login,
+          initialRoute: AppRoutes.splash,
         );
       },
     );

@@ -41,7 +41,7 @@ class _LoginPageState extends State<LoginPage> {
 
       if (!mounted) return;
       Navigator.of(context).pushNamedAndRemoveUntil(
-        AppRoutes.home,
+        AppRoutes.splash,
         (_) => false,
       );
     } on DioException catch (error) {

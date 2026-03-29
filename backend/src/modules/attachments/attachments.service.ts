@@ -2,22 +2,39 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Attachment } from './entities/attachment.entity';
+import { StorageService } from './storage.service';
 
 @Injectable()
 export class AttachmentsService {
   constructor(
     @InjectRepository(Attachment)
     private readonly repo: Repository<Attachment>,
+    private readonly storage: StorageService,
   ) {}
 
-  async create(data: any): Promise<Attachment> {
-    return this.repo.save(this.repo.create(data) as unknown as Attachment);
-  }
-
-  async findByEntity(
+  async uploadFile(
+    file: Express.Multer.File,
     entityType: string,
     entityId: string,
-  ): Promise<Attachment[]> {
+    uploadedById: string,
+  ): Promise<Attachment> {
+    const result = await this.storage.upload(file);
+
+    return this.repo.save(
+      this.repo.create({
+        entityType,
+        entityId,
+        filename: file.originalname,
+        url: result.url,
+        storageKey: result.key,
+        mimeType: result.mimeType,
+        size: result.size,
+        uploadedById,
+      }),
+    );
+  }
+
+  async findByEntity(entityType: string, entityId: string): Promise<Attachment[]> {
     return this.repo.find({
       where: { entityType, entityId },
       order: { createdAt: 'DESC' },
@@ -30,7 +47,19 @@ export class AttachmentsService {
     return a;
   }
 
+  async getDownloadUrl(id: string): Promise<string> {
+    const a = await this.findOne(id);
+    if (a.storageKey) {
+      return this.storage.getSignedUrl(a.storageKey);
+    }
+    return a.url;
+  }
+
   async remove(id: string): Promise<void> {
+    const a = await this.findOne(id);
+    if (a.storageKey) {
+      await this.storage.delete(a.storageKey);
+    }
     await this.repo.delete(id);
   }
 }

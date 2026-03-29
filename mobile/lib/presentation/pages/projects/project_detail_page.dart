@@ -11,6 +11,7 @@ import '../../../data/services/milestone_service.dart';
 import '../../../data/services/project_service.dart';
 import '../../../data/services/report_service.dart';
 import '../../../data/services/task_service.dart';
+import '../../widgets/loading_indicator.dart';
 
 class _Bundle {
   const _Bundle({
@@ -68,12 +69,52 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
     );
   }
 
+  void _showEditProjectSheet(ProjectModel project) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (sheetContext) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+          ),
+          child: _EditProjectForm(
+            project: project,
+            onSubmitted: () {
+              if (!mounted) return;
+              setState(() => _future = _load());
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Project updated')),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final currency = NumberFormat.currency(symbol: '\$');
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Project Detail')),
+      appBar: AppBar(
+        title: const Text('Project Detail'),
+        actions: [
+          FutureBuilder<_Bundle>(
+            future: _future,
+            builder: (context, snap) {
+              if (!snap.hasData) return const SizedBox.shrink();
+              return IconButton(
+                icon: const Icon(Icons.edit_outlined),
+                tooltip: 'Edit project',
+                onPressed: () => _showEditProjectSheet(snap.data!.project),
+              );
+            },
+          ),
+        ],
+      ),
       body: RefreshIndicator(
         onRefresh: () async {
           setState(() => _future = _load());
@@ -83,16 +124,23 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
           future: _future,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+              return const LoadingIndicator(message: 'Loading project...');
             }
 
             if (snapshot.hasError) {
               return ListView(
-                padding: const EdgeInsets.all(24),
+                physics: const AlwaysScrollableScrollPhysics(),
                 children: const [
                   SizedBox(height: 120),
-                  Text('Failed to load project detail',
-                      textAlign: TextAlign.center),
+                  Center(
+                    child: Column(
+                      children: [
+                        Icon(Icons.folder_open, size: 48, color: Color(0xFFD1D5DB)),
+                        SizedBox(height: 12),
+                        Text('Project not found.', style: TextStyle(fontSize: 16)),
+                      ],
+                    ),
+                  ),
                 ],
               );
             }
@@ -278,6 +326,301 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
               ],
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+class _EditProjectForm extends StatefulWidget {
+  const _EditProjectForm({
+    required this.project,
+    required this.onSubmitted,
+  });
+
+  final ProjectModel project;
+  final VoidCallback onSubmitted;
+
+  @override
+  State<_EditProjectForm> createState() => _EditProjectFormState();
+}
+
+class _EditProjectFormState extends State<_EditProjectForm> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _nameController;
+  late final TextEditingController _descriptionController;
+  late final TextEditingController _locationController;
+  late final TextEditingController _budgetController;
+  late String _industry;
+  late String _status;
+  DateTime? _startDate;
+  DateTime? _endDate;
+  bool _submitting = false;
+
+  static const List<String> _industryValues = [
+    'construction',
+    'telecom',
+    'software',
+    'other',
+  ];
+
+  static const List<String> _statusValues = [
+    'planning',
+    'active',
+    'on_hold',
+    'completed',
+    'cancelled',
+  ];
+
+  static DateTime? _parseProjectDate(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    final iso = DateTime.tryParse(raw);
+    if (iso != null) return iso;
+    try {
+      return DateFormat('yyyy-MM-dd').parse(raw);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final p = widget.project;
+    _nameController = TextEditingController(text: p.name);
+    _descriptionController =
+        TextEditingController(text: p.description ?? '');
+    _locationController = TextEditingController(text: p.location ?? '');
+    _budgetController = TextEditingController(
+      text: p.budget == 0 ? '' : p.budget.toString(),
+    );
+    _industry =
+        _industryValues.contains(p.industry) ? p.industry : 'other';
+    _status = _statusValues.contains(p.status) ? p.status : 'planning';
+    _startDate = _parseProjectDate(p.startDate);
+    _endDate = _parseProjectDate(p.endDate);
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _descriptionController.dispose();
+    _locationController.dispose();
+    _budgetController.dispose();
+    super.dispose();
+  }
+
+  String _industryLabel(String v) {
+    return switch (v) {
+      'construction' => 'Construction',
+      'telecom' => 'Telecom',
+      'software' => 'Software',
+      _ => 'Other',
+    };
+  }
+
+  String _statusLabel(String v) {
+    return switch (v) {
+      'planning' => 'Planning',
+      'active' => 'Active',
+      'on_hold' => 'On hold',
+      'completed' => 'Completed',
+      'cancelled' => 'Cancelled',
+      _ => v,
+    };
+  }
+
+  Future<void> _pickStartDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _startDate ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null) setState(() => _startDate = picked);
+  }
+
+  Future<void> _pickEndDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _endDate ?? _startDate ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null) setState(() => _endDate = picked);
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _submitting = true);
+    try {
+      final data = <String, dynamic>{
+        'name': _nameController.text.trim(),
+        if (_descriptionController.text.trim().isNotEmpty)
+          'description': _descriptionController.text.trim(),
+        if (_locationController.text.trim().isNotEmpty)
+          'location': _locationController.text.trim(),
+        'industry': _industry,
+        'status': _status,
+        'budget': double.tryParse(_budgetController.text.trim()) ?? 0,
+        if (_startDate != null)
+          'startDate': DateFormat('yyyy-MM-dd').format(_startDate!),
+        if (_endDate != null)
+          'endDate': DateFormat('yyyy-MM-dd').format(_endDate!),
+      };
+      await ProjectService.instance.update(widget.project.id, data);
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      widget.onSubmitted();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update project: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Text(
+              'Edit project',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _nameController,
+              decoration: const InputDecoration(
+                labelText: 'Name *',
+                border: OutlineInputBorder(),
+              ),
+              textCapitalization: TextCapitalization.words,
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Name is required';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _descriptionController,
+              decoration: const InputDecoration(
+                labelText: 'Description',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 3,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _locationController,
+              decoration: const InputDecoration(
+                labelText: 'Location',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: _industry,
+              decoration: const InputDecoration(
+                labelText: 'Industry',
+                border: OutlineInputBorder(),
+              ),
+              items: _industryValues
+                  .map(
+                    (v) => DropdownMenuItem(
+                      value: v,
+                      child: Text(_industryLabel(v)),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (v) {
+                if (v != null) setState(() => _industry = v);
+              },
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: _status,
+              decoration: const InputDecoration(
+                labelText: 'Status',
+                border: OutlineInputBorder(),
+              ),
+              items: _statusValues
+                  .map(
+                    (v) => DropdownMenuItem(
+                      value: v,
+                      child: Text(_statusLabel(v)),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (v) {
+                if (v != null) setState(() => _status = v);
+              },
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _budgetController,
+              decoration: const InputDecoration(
+                labelText: 'Budget',
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            ),
+            const SizedBox(height: 12),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Start date'),
+              subtitle: Text(
+                _startDate != null
+                    ? DateFormat.yMd().format(_startDate!)
+                    : 'Not set',
+              ),
+              trailing: const Icon(Icons.calendar_today),
+              onTap: _pickStartDate,
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('End date'),
+              subtitle: Text(
+                _endDate != null
+                    ? DateFormat.yMd().format(_endDate!)
+                    : 'Not set',
+              ),
+              trailing: const Icon(Icons.calendar_today),
+              onTap: _pickEndDate,
+            ),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: _submitting ? null : _submit,
+              child: _submitting
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Save changes'),
+            ),
+          ],
         ),
       ),
     );

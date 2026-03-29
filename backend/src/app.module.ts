@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule } from '@nestjs/throttler';
 import databaseConfig from './config/database.config';
 import jwtConfig from './config/jwt.config';
+import r2Config from './config/r2.config';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { ProjectsModule } from './modules/projects/projects.module';
@@ -32,7 +33,7 @@ import { InventoryModule } from './modules/inventory/inventory.module';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [databaseConfig, jwtConfig],
+      load: [databaseConfig, jwtConfig, r2Config],
     }),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],

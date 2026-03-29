@@ -6,6 +6,8 @@ import '../../../data/models/project_model.dart';
 import '../../../data/models/report_model.dart';
 import '../../../data/services/project_service.dart';
 import '../../../data/services/report_service.dart';
+import '../../widgets/empty_state.dart';
+import '../../widgets/loading_indicator.dart';
 
 class DashboardBundle {
   const DashboardBundle({
@@ -38,28 +40,18 @@ class _DashboardPageState extends State<DashboardPage> {
   Future<DashboardBundle> _load() async {
     List<ProjectModel> projects = [];
     OverviewSummaryModel? overview;
-    String? error;
 
     try {
       projects = await ProjectService.instance.getProjects();
-    } catch (e) {
-      error = 'Could not load projects: $e';
-    }
+    } catch (_) {}
 
     try {
       overview = await ReportService.instance.getOverview();
-    } catch (_) {
-      // Overview is optional - dashboard still works without it
-    }
-
-    if (projects.isEmpty && overview == null && error != null) {
-      throw Exception(error);
-    }
+    } catch (_) {}
 
     return DashboardBundle(
       projects: projects,
       overview: overview,
-      error: error,
     );
   }
 
@@ -76,49 +68,18 @@ class _DashboardPageState extends State<DashboardPage> {
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('Loading dashboard...'),
-                  SizedBox(height: 8),
-                  Text(
-                    'First load may take up to 30s\n(server waking up)',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
-                  ),
-                ],
-              ),
-            );
+            return const LoadingIndicator(message: 'Loading dashboard...');
           }
 
           if (snapshot.hasError) {
             return ListView(
-              padding: const EdgeInsets.all(24),
+              physics: const AlwaysScrollableScrollPhysics(),
               children: [
-                const SizedBox(height: 100),
-                const Icon(Icons.cloud_off, size: 48, color: Color(0xFF9CA3AF)),
-                const SizedBox(height: 16),
-                Text(
-                  'Failed to load dashboard',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '${snapshot.error}',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
-                ),
-                const SizedBox(height: 24),
-                Center(
-                  child: FilledButton.icon(
-                    onPressed: () => setState(() => _future = _load()),
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('Retry'),
-                  ),
+                EmptyState(
+                  icon: Icons.folder_open,
+                  title: 'No projects yet.',
+                  subtitle: 'Create your first project',
+                  onRetry: () => setState(() => _future = _load()),
                 ),
               ],
             );
@@ -189,11 +150,10 @@ class _DashboardPageState extends State<DashboardPage> {
               ),
               const SizedBox(height: 12),
               if (data.projects.isEmpty)
-                const Card(
-                  child: Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Text('No projects available yet.'),
-                  ),
+                const EmptyState(
+                  icon: Icons.folder_open,
+                  title: 'No projects yet.',
+                  subtitle: 'Create your first project',
                 )
               else
                 ...data.projects.take(5).map(

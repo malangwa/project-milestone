@@ -34,6 +34,14 @@ services:
         value: 7d
       - key: FRONTEND_URLS
         value: https://project-milestone-web.onrender.com
+      - key: R2_ACCOUNT_ID
+        value: 9c9f755af1e60adb7c37155dcc2826f7
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET_NAME
+        value: project-milestone-files
 
   - type: web
     name: project-milestone-web

@@ -12,13 +12,13 @@ class ExpenseService {
 
   Future<List<ExpenseModel>> getByProject(String projectId) async {
     final response =
-        await _dio.get<Map<String, dynamic>>('/expenses/project/$projectId');
+        await _dio.get<dynamic>('/expenses/project/$projectId');
     final payload = _unwrapList(response.data);
     return payload.map(ExpenseModel.fromJson).toList();
   }
 
   Future<ExpenseModel> getById(String id) async {
-    final response = await _dio.get<Map<String, dynamic>>('/expenses/$id');
+    final response = await _dio.get<dynamic>('/expenses/$id');
     final payload = _unwrapMap(response.data);
     return ExpenseModel.fromJson(payload);
   }
@@ -29,6 +29,14 @@ class ExpenseService {
 
   Future<void> reject(String id) async {
     await _dio.patch<void>('/expenses/$id/reject');
+  }
+
+  Future<void> create(Map<String, dynamic> data) async {
+    await _dio.post<dynamic>('/expenses', data: data);
+  }
+
+  Future<void> delete(String id) async {
+    await _dio.delete<void>('/expenses/$id');
   }
 
   List<Map<String, dynamic>> _unwrapList(dynamic data) {

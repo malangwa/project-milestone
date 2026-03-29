@@ -27,7 +27,7 @@ class AuthService {
     required String email,
     required String password,
   }) async {
-    final response = await _dio.post<Map<String, dynamic>>(
+    final response = await _dio.post<dynamic>(
       '/auth/login',
       data: {'email': email.trim(), 'password': password},
     );
@@ -51,7 +51,7 @@ class AuthService {
   }
 
   Future<UserModel> me() async {
-    final response = await _dio.get<Map<String, dynamic>>('/auth/me');
+    final response = await _dio.get<dynamic>('/auth/me');
     final payload = _unwrapMap(response.data);
     return UserModel.fromJson(payload);
   }

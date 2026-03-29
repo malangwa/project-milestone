@@ -5,6 +5,8 @@ import '../../../data/models/activity_model.dart';
 import '../../../data/models/project_model.dart';
 import '../../../data/services/activity_service.dart';
 import '../../../data/services/project_service.dart';
+import '../../widgets/empty_state.dart';
+import '../../widgets/loading_indicator.dart';
 
 class ActivityListPage extends StatefulWidget {
   const ActivityListPage({super.key});
@@ -25,13 +27,17 @@ class _ActivityListPageState extends State<ActivityListPage> {
   }
 
   Future<List<ProjectModel>> _loadProjects() async {
-    final projects = await ProjectService.instance.getProjects();
-    if (projects.isNotEmpty && _selectedProjectId == null) {
-      _selectedProjectId = projects.first.id;
-      _activitiesFuture =
-          ActivityService.instance.getByProject(_selectedProjectId!);
+    try {
+      final projects = await ProjectService.instance.getProjects();
+      if (projects.isNotEmpty && _selectedProjectId == null) {
+        _selectedProjectId = projects.first.id;
+        _activitiesFuture =
+            ActivityService.instance.getByProject(_selectedProjectId!);
+      }
+      return projects;
+    } catch (_) {
+      return [];
     }
-    return projects;
   }
 
   void _onProjectChanged(String? projectId) {
@@ -74,15 +80,16 @@ class _ActivityListPageState extends State<ActivityListPage> {
       future: _projectsFuture,
       builder: (context, projectSnapshot) {
         if (projectSnapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const LoadingIndicator(message: 'Loading activities...');
         }
-        if (projectSnapshot.hasError) {
-          return const Center(child: Text('Failed to load projects'));
-        }
-
         final projects = projectSnapshot.data ?? const <ProjectModel>[];
-        if (projects.isEmpty) {
-          return const Center(child: Text('No projects available.'));
+        if (projectSnapshot.hasError || projects.isEmpty) {
+          return EmptyState(
+            icon: Icons.folder_open,
+            title: 'No projects yet.',
+            subtitle: 'Create your first project to see activity',
+            onRetry: () => setState(() => _projectsFuture = _loadProjects()),
+          );
         }
 
         return Column(
@@ -116,26 +123,23 @@ class _ActivityListPageState extends State<ActivityListPage> {
                   future: _activitiesFuture,
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator());
+                      return const LoadingIndicator(message: 'Loading activities...');
                     }
-                    if (snapshot.hasError) {
-                      return ListView(
-                        children: const [
-                          SizedBox(height: 160),
-                          Center(child: Text('Failed to load activity feed')),
-                        ],
-                      );
-                    }
-
                     final activities =
                         snapshot.data ?? const <ActivityModel>[];
-                    if (activities.isEmpty) {
+                    if (snapshot.hasError || activities.isEmpty) {
                       return ListView(
-                        children: const [
-                          SizedBox(height: 160),
-                          Center(
-                            child:
-                                Text('No activity recorded for this project.'),
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        children: [
+                          EmptyState(
+                            icon: Icons.timeline_outlined,
+                            title: 'No activity recorded for this project yet.',
+                            onRetry: _selectedProjectId == null ? null : () {
+                              setState(() {
+                                _activitiesFuture = ActivityService.instance
+                                    .getByProject(_selectedProjectId!);
+                              });
+                            },
                           ),
                         ],
                       );
