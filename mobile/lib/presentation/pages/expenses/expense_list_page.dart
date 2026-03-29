@@ -139,6 +139,7 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
     final titleCtrl = TextEditingController();
     final amountCtrl = TextEditingController();
     final notesCtrl = TextEditingController();
+    final receiptPurposeCtrl = TextEditingController();
     final formKey = GlobalKey<FormState>();
     var category = 'labor';
     var selectedDate = DateTime.now();
@@ -289,6 +290,19 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
                             child: const Text('Remove', style: TextStyle(color: Colors.red)),
                           ),
                         ),
+                      if (receiptFile != null) ...[
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: receiptPurposeCtrl,
+                          decoration: const InputDecoration(
+                            labelText: 'What is this receipt for?',
+                            hintText:
+                                'e.g. Payment for workers, cement purchase',
+                            border: OutlineInputBorder(),
+                          ),
+                          textCapitalization: TextCapitalization.sentences,
+                        ),
+                      ],
                       const SizedBox(height: 12),
                       FilledButton(
                         onPressed: () async {
@@ -318,6 +332,7 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
                                   receiptFile!.name,
                                   'expense',
                                   created.id,
+                                  receiptPurposeCtrl.text.trim(),
                                 );
                               } catch (_) {}
                             }
@@ -355,6 +370,7 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
       titleCtrl.dispose();
       amountCtrl.dispose();
       notesCtrl.dispose();
+      receiptPurposeCtrl.dispose();
     });
   }
 
@@ -574,10 +590,43 @@ class _ExpenseCardState extends State<_ExpenseCard> {
       allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf'],
     );
     if (result == null || result.files.isEmpty || result.files.first.path == null) return;
+    if (!mounted) return;
+    final purposeCtrl = TextEditingController();
+    final description = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('What is this receipt for?'),
+        content: TextField(
+          controller: purposeCtrl,
+          decoration: const InputDecoration(
+            hintText: 'e.g. Workers payment, diesel, cement',
+            border: OutlineInputBorder(),
+          ),
+          textCapitalization: TextCapitalization.sentences,
+          maxLines: 2,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, ''),
+            child: const Text('Skip'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, purposeCtrl.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    purposeCtrl.dispose();
+    if (!mounted) return;
     try {
       final file = result.files.first;
       final attachment = await AttachmentService.instance.upload(
-        file.path!, file.name, 'expense', widget.expense.id,
+        file.path!,
+        file.name,
+        'expense',
+        widget.expense.id,
+        description,
       );
       if (mounted) {
         setState(() => _receipts.add(attachment));
@@ -681,7 +730,12 @@ class _ExpenseCardState extends State<_ExpenseCard> {
                     a.mimeType?.startsWith('image/') == true ? Icons.image : Icons.description,
                     size: 16,
                   ),
-                  label: Text(a.filename, overflow: TextOverflow.ellipsis),
+                  label: Text(
+                    (a.description?.trim().isNotEmpty == true)
+                        ? a.description!.trim()
+                        : a.filename,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   onPressed: () => _viewReceipt(a),
                 )).toList(),
               ),

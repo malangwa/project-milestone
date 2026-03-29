@@ -25,6 +25,7 @@ const ExpenseList = () => {
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ title: '', amount: '', category: 'other', date: '', notes: '' });
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [receiptDescription, setReceiptDescription] = useState('');
   const [saving, setSaving] = useState(false);
   const [expenseAttachments, setExpenseAttachments] = useState<Record<string, any[]>>({});
 
@@ -65,11 +66,12 @@ const ExpenseList = () => {
       const res = await expensesApi.create({ ...clean, amount: Number(form.amount), projectId: selectedProject });
       const created = res.data?.data || res.data;
       if (receiptFile && created?.id) {
-        await attachmentsApi.upload(receiptFile, 'expense', created.id);
+        await attachmentsApi.upload(receiptFile, 'expense', created.id, receiptDescription);
       }
       setShowModal(false);
       setForm({ title: '', amount: '', category: 'other', date: '', notes: '' });
       setReceiptFile(null);
+      setReceiptDescription('');
       reload();
     } finally { setSaving(false); }
   };
@@ -84,7 +86,8 @@ const ExpenseList = () => {
 
   const handleUploadReceipt = async (expenseId: string, file: File) => {
     try {
-      await attachmentsApi.upload(file, 'expense', expenseId);
+      const description = window.prompt('What is this receipt for?', 'Receipt for workers, materials, transport, or other expense') || '';
+      await attachmentsApi.upload(file, 'expense', expenseId, description);
       loadExpenseAttachments(expenseId);
     } catch {}
   };
@@ -216,7 +219,7 @@ const ExpenseList = () => {
                       ) : (
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                       )}
-                      {a.filename}
+                      {a.description || a.filename}
                     </button>
                   ))}
                 </div>
@@ -275,6 +278,14 @@ const ExpenseList = () => {
                   <button type="button" onClick={() => setReceiptFile(null)} className="text-xs text-red-500 mt-1 hover:text-red-700">Remove</button>
                 )}
               </div>
+              {receiptFile && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">What is this receipt for?</label>
+                  <input value={receiptDescription} onChange={(e) => setReceiptDescription(e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="e.g. Payment for workers, cement purchase, site transport" />
+                </div>
+              )}
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowModal(false)}
                   className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 text-sm rounded-lg hover:bg-gray-50">Cancel</button>

@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Get,
   Post,
@@ -36,12 +37,14 @@ export class AttachmentsController {
         file: { type: 'string', format: 'binary' },
         entityType: { type: 'string' },
         entityId: { type: 'string' },
+        description: { type: 'string' },
       },
     },
   })
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 25 * 1024 * 1024 } }))
   async upload(
     @UploadedFile() file: Express.Multer.File,
+    @Body('description') description: string | undefined,
     @Query('entityType') entityType: string,
     @Query('entityId') entityId: string,
     @CurrentUser() user: User,
@@ -50,7 +53,13 @@ export class AttachmentsController {
     if (!entityType || !entityId) {
       throw new BadRequestException('entityType and entityId are required');
     }
-    return this.attachmentsService.uploadFile(file, entityType, entityId, user.id);
+    return this.attachmentsService.uploadFile(
+      file,
+      entityType,
+      entityId,
+      user.id,
+      description,
+    );
   }
 
   @Get()

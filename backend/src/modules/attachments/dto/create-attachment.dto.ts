@@ -12,4 +12,5 @@ export class CreateAttachmentDto {
   @Min(0)
   @IsOptional()
   size?: number;
+  @ApiProperty({ required: false }) @IsString() @IsOptional() description?: string;
 }

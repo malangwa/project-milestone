@@ -73,6 +73,7 @@ const ProjectDetail = () => {
   const [commentAttachments, setCommentAttachments] = useState<Record<string, any[]>>({});
   const [activities, setActivities] = useState<any[]>([]);
   const [attachments, setAttachments] = useState<any[]>([]);
+  const [attachmentPreviewUrls, setAttachmentPreviewUrls] = useState<Record<string, string>>({});
   const [uploading, setUploading] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [editForm, setEditForm] = useState({ name: '', description: '', location: '', status: '', industry: '', budget: '', givenCash: '', startDate: '', endDate: '' });
@@ -156,6 +157,25 @@ const ProjectDetail = () => {
       .then((res) => setAttachments(res.data?.data || res.data || []))
       .catch(() => setAttachments([]));
   }, [tab, id]);
+
+  useEffect(() => {
+    attachments
+      .filter((attachment) => attachment.mimeType?.startsWith('image/') && !attachmentPreviewUrls[attachment.id])
+      .forEach((attachment) => {
+        attachmentsApi.getDownloadUrl(attachment.id)
+          .then((res) => {
+            const url = res.data?.url || res.data?.data?.url || attachment.url;
+            if (url) {
+              setAttachmentPreviewUrls((prev) => ({ ...prev, [attachment.id]: url }));
+            }
+          })
+          .catch(() => {
+            if (attachment.url) {
+              setAttachmentPreviewUrls((prev) => ({ ...prev, [attachment.id]: attachment.url }));
+            }
+          });
+      });
+  }, [attachments, attachmentPreviewUrls]);
 
   useEffect(() => {
     if (!id || tab !== 'activity') return;
@@ -329,6 +349,8 @@ const ProjectDetail = () => {
   const editedGivenCash = Number(editForm.givenCash || 0);
   const editedRemaining = Math.max(0, editedBudget - editedGivenCash);
   const recentComments = comments.slice(-5).reverse();
+  const imageAttachments = attachments.filter((attachment) => attachment.mimeType?.startsWith('image/'));
+  const documentAttachments = attachments.filter((attachment) => !attachment.mimeType?.startsWith('image/'));
 
   const money = (value: number | string | null | undefined) => `$${Number(value ?? 0).toLocaleString()}`;
 
@@ -621,15 +643,41 @@ const ProjectDetail = () => {
               </div>
             </div>
             {attachments.length > 0 ? (
-              <div className="flex flex-wrap gap-2 mt-2">
-                {attachments.slice(0, 6).map((a: any) => (
-                  <button key={a.id} onClick={() => handleDownload(a)}
-                    className="inline-flex items-center gap-1.5 text-xs bg-gray-50 text-gray-700 border border-gray-200 px-3 py-2 rounded-lg hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-colors">
-                    {a.mimeType?.startsWith('image/') ? '🖼️' : a.mimeType?.includes('pdf') ? '📄' : '📎'}
-                    <span className="truncate max-w-[120px]">{a.filename}</span>
-                  </button>
-                ))}
-                {attachments.length > 6 && <span className="text-xs text-gray-400 self-center">+{attachments.length - 6} more</span>}
+              <div className="mt-3 space-y-3">
+                {imageAttachments.length > 0 && (
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {imageAttachments.slice(0, 4).map((a: any) => (
+                      <button
+                        key={a.id}
+                        onClick={() => handleDownload(a)}
+                        className="text-left rounded-xl overflow-hidden border border-gray-200 hover:border-blue-300 hover:shadow-sm transition-all bg-white"
+                      >
+                        <div className="aspect-square bg-gray-100">
+                          {attachmentPreviewUrls[a.id] ? (
+                            <img src={attachmentPreviewUrls[a.id]} alt={a.description || a.filename} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-gray-300 text-sm">Loading...</div>
+                          )}
+                        </div>
+                        <div className="p-2">
+                          <p className="text-xs font-medium text-gray-700 truncate">{a.description || 'Project photo'}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {documentAttachments.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {documentAttachments.slice(0, 4).map((a: any) => (
+                      <button key={a.id} onClick={() => handleDownload(a)}
+                        className="inline-flex items-center gap-1.5 text-xs bg-gray-50 text-gray-700 border border-gray-200 px-3 py-2 rounded-lg hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-colors">
+                        {a.mimeType?.includes('pdf') ? '📄' : '📎'}
+                        <span className="truncate max-w-[160px]">{a.description || a.filename}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {attachments.length > 4 && <span className="text-xs text-gray-400 self-center">+{attachments.length - 4} more</span>}
               </div>
             ) : (
               <p className="text-sm text-gray-400 mt-2">No files uploaded yet. Upload progress photos, receipts, or documents.</p>
@@ -1056,7 +1104,8 @@ const ProjectDetail = () => {
                         <input type="file" accept="image/*,.pdf" className="hidden" onChange={async (ev) => {
                           const f = ev.target.files?.[0];
                           if (f) {
-                            await attachmentsApi.upload(f, 'material_request', request.id);
+                            const description = window.prompt('What is this receipt for?', 'Requested materials receipt') || '';
+                            await attachmentsApi.upload(f, 'material_request', request.id, description);
                             ev.target.value = '';
                           }
                         }} />
@@ -1184,42 +1233,77 @@ const ProjectDetail = () => {
               <p>No files uploaded yet. Click "Upload Files" to add documents, images, or other files.</p>
             </div>
           ) : (
-            <div className="space-y-2">
-              {attachments.map((a: any) => (
-                <div key={a.id} className="bg-white border border-gray-200 rounded-xl px-5 py-4 flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-                      {a.mimeType?.startsWith('image/') ? (
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                      ) : a.mimeType?.includes('pdf') ? (
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                      ) : (
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-medium text-gray-900 truncate">{a.filename}</p>
-                      <div className="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
-                        <span>{a.mimeType}</span>
-                        {a.size && <span>{(a.size / 1024).toFixed(1)} KB</span>}
-                        <span>{new Date(a.createdAt).toLocaleDateString()}</span>
+            <div className="space-y-4">
+              {imageAttachments.length > 0 && (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {imageAttachments.map((a: any) => (
+                    <div key={a.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                      <button onClick={() => handleDownload(a)} className="w-full text-left">
+                        <div className="aspect-square bg-gray-100">
+                          {attachmentPreviewUrls[a.id] ? (
+                            <img src={attachmentPreviewUrls[a.id]} alt={a.description || a.filename} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-gray-300 text-sm">Loading...</div>
+                          )}
+                        </div>
+                      </button>
+                      <div className="p-3">
+                        <p className="text-sm font-medium text-gray-900 truncate">{a.description || 'Project image'}</p>
+                        <p className="text-xs text-gray-400 mt-1">{a.createdAt ? new Date(a.createdAt).toLocaleDateString() : ''}</p>
+                        <div className="flex items-center gap-2 mt-3">
+                          <button onClick={() => handleDownload(a)}
+                            className="text-xs font-medium text-blue-600 hover:text-blue-700 px-3 py-1.5 rounded-lg hover:bg-blue-50">
+                            Open
+                          </button>
+                          {canEdit && (
+                            <button onClick={() => handleDeleteAttachment(a.id)}
+                              className="text-xs font-medium text-red-600 hover:text-red-700 px-3 py-1.5 rounded-lg hover:bg-red-50">
+                              Delete
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button onClick={() => handleDownload(a)}
-                      className="text-xs font-medium text-blue-600 hover:text-blue-700 px-3 py-1.5 rounded-lg hover:bg-blue-50">
-                      Download
-                    </button>
-                    {canEdit && (
-                      <button onClick={() => handleDeleteAttachment(a.id)}
-                        className="text-xs font-medium text-red-600 hover:text-red-700 px-3 py-1.5 rounded-lg hover:bg-red-50">
-                        Delete
-                      </button>
-                    )}
-                  </div>
+                  ))}
                 </div>
-              ))}
+              )}
+              {documentAttachments.length > 0 && (
+                <div className="space-y-2">
+                  {documentAttachments.map((a: any) => (
+                    <div key={a.id} className="bg-white border border-gray-200 rounded-xl px-5 py-4 flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                          {a.mimeType?.includes('pdf') ? (
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                          ) : (
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-medium text-gray-900 truncate">{a.description || a.filename}</p>
+                          <div className="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
+                            <span>{a.mimeType}</span>
+                            {a.size && <span>{(a.size / 1024).toFixed(1)} KB</span>}
+                            <span>{new Date(a.createdAt).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button onClick={() => handleDownload(a)}
+                          className="text-xs font-medium text-blue-600 hover:text-blue-700 px-3 py-1.5 rounded-lg hover:bg-blue-50">
+                          Download
+                        </button>
+                        {canEdit && (
+                          <button onClick={() => handleDeleteAttachment(a.id)}
+                            className="text-xs font-medium text-red-600 hover:text-red-700 px-3 py-1.5 rounded-lg hover:bg-red-50">
+                            Delete
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

@@ -395,6 +395,7 @@ class _FilesSection extends StatefulWidget {
 
 class _FilesSectionState extends State<_FilesSection> {
   List<AttachmentModel> _files = [];
+  final Map<String, String> _imageUrls = {};
   bool _loading = true;
   bool _uploading = false;
 
@@ -409,7 +410,32 @@ class _FilesSectionState extends State<_FilesSection> {
       'project',
       widget.projectId,
     );
-    if (mounted) setState(() { _files = files; _loading = false; });
+    if (mounted) {
+      setState(() {
+        _files = files;
+        _imageUrls.clear();
+        _loading = false;
+      });
+    }
+    for (final file in files.where(
+      (item) => item.mimeType?.startsWith('image/') == true,
+    )) {
+      await _loadImageUrl(file);
+    }
+  }
+
+  Future<void> _loadImageUrl(AttachmentModel attachment) async {
+    try {
+      final url = await AttachmentService.instance.getDownloadUrl(attachment.id);
+      final target = url.isNotEmpty ? url : attachment.url;
+      if (target.isNotEmpty && mounted) {
+        setState(() => _imageUrls[attachment.id] = target);
+      }
+    } catch (_) {
+      if (attachment.url.isNotEmpty && mounted) {
+        setState(() => _imageUrls[attachment.id] = attachment.url);
+      }
+    }
   }
 
   Future<void> _pickAndUpload() async {
@@ -425,8 +451,12 @@ class _FilesSectionState extends State<_FilesSection> {
           file.name,
           'project',
           widget.projectId,
+          null,
         );
         if (mounted) setState(() => _files.add(attachment));
+        if (attachment.mimeType?.startsWith('image/') == true) {
+          await _loadImageUrl(attachment);
+        }
       }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -546,37 +576,95 @@ class _FilesSectionState extends State<_FilesSection> {
                   ),
                 ),
               )
-            else
-              ..._files.map((file) => ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(
-                      _iconForMime(file.mimeType),
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                    title: Text(
-                      file.filename,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    subtitle: Text(
-                      [
-                        if (file.sizeLabel.isNotEmpty) file.sizeLabel,
-                        if (file.createdAt != null)
-                          DateFormat.yMd().format(DateTime.parse(file.createdAt!)),
-                      ].join(' • '),
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                    trailing: PopupMenuButton<String>(
-                      onSelected: (value) {
-                        if (value == 'download') _download(file);
-                        if (value == 'delete') _delete(file);
-                      },
-                      itemBuilder: (_) => [
-                        const PopupMenuItem(value: 'download', child: Text('Download')),
-                        const PopupMenuItem(value: 'delete', child: Text('Delete', style: TextStyle(color: Colors.red))),
-                      ],
-                    ),
-                  )),
+            else ...[
+              if (_files.any((file) => file.mimeType?.startsWith('image/') == true))
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: _files
+                      .where((file) => file.mimeType?.startsWith('image/') == true)
+                      .map(
+                        (file) => SizedBox(
+                          width: 140,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              InkWell(
+                                onTap: () => _download(file),
+                                borderRadius: BorderRadius.circular(12),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Container(
+                                    height: 120,
+                                    width: 140,
+                                    color: const Color(0xFFF3F4F6),
+                                    child: _imageUrls[file.id]?.isNotEmpty == true
+                                        ? Image.network(
+                                            _imageUrls[file.id]!,
+                                            fit: BoxFit.cover,
+                                          )
+                                        : const Center(
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                (file.description?.trim().isNotEmpty == true)
+                                    ? file.description!.trim()
+                                    : 'Project image',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
+              if (_files.any((file) => file.mimeType?.startsWith('image/') != true))
+                ..._files
+                    .where((file) => file.mimeType?.startsWith('image/') != true)
+                    .map((file) => ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(
+                            _iconForMime(file.mimeType),
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          title: Text(
+                            (file.description?.trim().isNotEmpty == true)
+                                ? file.description!.trim()
+                                : file.filename,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: Text(
+                            [
+                              if (file.sizeLabel.isNotEmpty) file.sizeLabel,
+                              if (file.createdAt != null)
+                                DateFormat.yMd().format(DateTime.parse(file.createdAt!)),
+                            ].join(' • '),
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          trailing: PopupMenuButton<String>(
+                            onSelected: (value) {
+                              if (value == 'download') _download(file);
+                              if (value == 'delete') _delete(file);
+                            },
+                            itemBuilder: (_) => [
+                              const PopupMenuItem(value: 'download', child: Text('Download')),
+                              const PopupMenuItem(value: 'delete', child: Text('Delete', style: TextStyle(color: Colors.red))),
+                            ],
+                          ),
+                        )),
+            ],
           ],
         ),
       ),
@@ -687,6 +775,7 @@ class _ProgressUpdatesSectionState extends State<_ProgressUpdatesSection> {
           _photo!.name,
           'comment',
           commentId,
+          null,
         );
         _attachments[commentId] = [uploaded];
       }

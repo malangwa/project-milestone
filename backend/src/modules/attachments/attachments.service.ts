@@ -17,6 +17,7 @@ export class AttachmentsService {
     entityType: string,
     entityId: string,
     uploadedById: string,
+    description?: string,
   ): Promise<Attachment> {
     const result = await this.storage.upload(file);
 
@@ -29,6 +30,7 @@ export class AttachmentsService {
         storageKey: result.key,
         mimeType: result.mimeType,
         size: result.size,
+        description: description?.trim() || undefined,
         uploadedById,
       }),
     );

@@ -34,6 +34,9 @@ export class Attachment {
   @Column({ type: 'int', nullable: true })
   size: number;
 
+  @Column({ type: 'text', nullable: true })
+  description?: string | null;
+
   @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'uploaded_by' })
   uploadedBy: User;

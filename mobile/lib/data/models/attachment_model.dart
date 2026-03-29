@@ -6,6 +6,7 @@ class AttachmentModel {
     this.storageKey,
     this.mimeType,
     this.size,
+    this.description,
     this.entityType,
     this.entityId,
     this.createdAt,
@@ -19,6 +20,7 @@ class AttachmentModel {
       storageKey: json['storageKey']?.toString(),
       mimeType: json['mimeType']?.toString(),
       size: json['size'] is num ? (json['size'] as num).toInt() : null,
+      description: json['description']?.toString(),
       entityType: json['entityType']?.toString(),
       entityId: json['entityId']?.toString(),
       createdAt: json['createdAt']?.toString(),
@@ -31,6 +33,7 @@ class AttachmentModel {
   final String? storageKey;
   final String? mimeType;
   final int? size;
+  final String? description;
   final String? entityType;
   final String? entityId;
   final String? createdAt;

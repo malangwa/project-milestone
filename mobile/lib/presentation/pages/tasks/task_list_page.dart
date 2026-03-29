@@ -293,7 +293,7 @@ class _TaskCardState extends State<_TaskCard> {
     try {
       final file = result.files.first;
       final attachment = await AttachmentService.instance.upload(
-        file.path!, file.name, 'task', widget.task.id,
+        file.path!, file.name, 'task', widget.task.id, null,
       );
       if (mounted) {
         setState(() => _photos.add(attachment));

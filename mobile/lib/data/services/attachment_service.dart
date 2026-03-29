@@ -61,9 +61,12 @@ class AttachmentService {
     String fileName,
     String entityType,
     String entityId,
+    String? description,
   ) async {
     final formData = FormData.fromMap({
       'file': await MultipartFile.fromFile(filePath, filename: fileName),
+      if (description != null && description.trim().isNotEmpty)
+        'description': description.trim(),
     });
     final response = await _dio.post<dynamic>(
       '/attachments/upload',
