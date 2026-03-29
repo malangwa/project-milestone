@@ -10,6 +10,7 @@ import '../../../data/models/project_model.dart';
 import '../../../data/models/report_model.dart';
 import '../../../data/models/task_model.dart';
 import '../../../data/services/attachment_service.dart';
+import '../../../data/services/comment_service.dart';
 import '../../../data/services/expense_service.dart';
 import '../../../data/services/milestone_service.dart';
 import '../../../data/services/project_service.dart';
@@ -73,7 +74,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
     );
   }
 
-  void _showEditProjectSheet(ProjectModel project) {
+  void _showEditProjectSheet(ProjectModel project, double givenAmount) {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -85,6 +86,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
           ),
           child: _EditProjectForm(
             project: project,
+            givenAmount: givenAmount,
             onSubmitted: () {
               if (!mounted) return;
               setState(() => _future = _load());
@@ -113,7 +115,12 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
               return IconButton(
                 icon: const Icon(Icons.edit_outlined),
                 tooltip: 'Edit project',
-                onPressed: () => _showEditProjectSheet(snap.data!.project),
+                onPressed: () => _showEditProjectSheet(
+                  snap.data!.project,
+                  snap.data!.expenses
+                      .where((expense) => expense.status == 'approved')
+                      .fold<double>(0, (sum, expense) => sum + expense.amount),
+                ),
               );
             },
           ),
@@ -152,8 +159,6 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
             final data = snapshot.data!;
             final completedTasks =
                 data.tasks.where((t) => t.status == 'done').length;
-            final totalExpenses =
-                data.expenses.fold<double>(0, (s, e) => s + e.amount);
             final approvedExpenses = data.expenses
                 .where((e) => e.status == 'approved')
                 .fold<double>(0, (s, e) => s + e.amount);
@@ -361,6 +366,10 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
 
                 // Files
                 _FilesSection(projectId: widget.projectId),
+                const SizedBox(height: 16),
+
+                // Progress updates
+                _ProgressUpdatesSection(projectId: widget.projectId),
               ],
             );
           },
@@ -569,13 +578,272 @@ class _FilesSectionState extends State<_FilesSection> {
   }
 }
 
+class _ProgressUpdatesSection extends StatefulWidget {
+  const _ProgressUpdatesSection({required this.projectId});
+
+  final String projectId;
+
+  @override
+  State<_ProgressUpdatesSection> createState() => _ProgressUpdatesSectionState();
+}
+
+class _ProgressUpdatesSectionState extends State<_ProgressUpdatesSection> {
+  final TextEditingController _controller = TextEditingController();
+  List<Map<String, dynamic>> _comments = [];
+  final Map<String, List<AttachmentModel>> _attachments = {};
+  bool _loading = true;
+  bool _posting = false;
+  PlatformFile? _photo;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadComments();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadComments() async {
+    try {
+      final comments = await CommentService.instance.getByEntity(
+        'project',
+        widget.projectId,
+      );
+      if (!mounted) return;
+      setState(() {
+        _comments = comments;
+        _loading = false;
+      });
+      for (final comment in comments) {
+        final id = comment['id']?.toString();
+        if (id != null && id.isNotEmpty) {
+          final files = await AttachmentService.instance.getByEntity(
+            'comment',
+            id,
+          );
+          if (!mounted) return;
+          setState(() => _attachments[id] = files);
+        }
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _pickPhoto() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['jpg', 'jpeg', 'png'],
+    );
+    if (result != null && result.files.isNotEmpty && mounted) {
+      setState(() => _photo = result.files.first);
+    }
+  }
+
+  Future<void> _postUpdate() async {
+    final text = _controller.text.trim();
+    if (text.isEmpty && _photo == null) return;
+    setState(() => _posting = true);
+    try {
+      final created = await CommentService.instance.create({
+        'entityType': 'project',
+        'entityId': widget.projectId,
+        'content': text.isNotEmpty ? text : 'Photo update',
+      });
+      final commentId = created['id']?.toString();
+      if (_photo?.path != null && commentId != null && commentId.isNotEmpty) {
+        final uploaded = await AttachmentService.instance.upload(
+          _photo!.path!,
+          _photo!.name,
+          'comment',
+          commentId,
+        );
+        _attachments[commentId] = [uploaded];
+      }
+      _controller.clear();
+      if (mounted) {
+        setState(() {
+          _photo = null;
+          _comments = [..._comments, created];
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Progress update posted')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to post update: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _posting = false);
+    }
+  }
+
+  Future<void> _openAttachment(AttachmentModel attachment) async {
+    try {
+      final url = await AttachmentService.instance.getDownloadUrl(attachment.id);
+      final target = url.isNotEmpty ? url : attachment.url;
+      if (target.isEmpty) return;
+      final uri = Uri.parse(target);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
+      } else {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not open file: $e')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Progress Updates',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _controller,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                hintText: 'Share today\'s progress, milestones, issues...',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                OutlinedButton.icon(
+                  onPressed: _posting ? null : _pickPhoto,
+                  icon: const Icon(Icons.add_a_photo_outlined),
+                  label: Text(_photo == null ? 'Add photo' : _photo!.name),
+                ),
+                const Spacer(),
+                FilledButton(
+                  onPressed: _posting ? null : _postUpdate,
+                  child: _posting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Post update'),
+                ),
+              ],
+            ),
+            if (_photo != null)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: _posting ? null : () => setState(() => _photo = null),
+                  child: const Text('Remove photo'),
+                ),
+              ),
+            const SizedBox(height: 12),
+            if (_loading)
+              const LoadingIndicator(message: 'Loading updates...')
+            else if (_comments.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Text(
+                  'No progress updates yet.',
+                  style: TextStyle(color: Color(0xFF9CA3AF)),
+                ),
+              )
+            else
+              ..._comments.map((comment) {
+                final id = comment['id']?.toString() ?? '';
+                final author = (comment['author'] as Map<String, dynamic>?) ?? const {};
+                final files = _attachments[id] ?? const <AttachmentModel>[];
+                return Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF9FAFB),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE5E7EB)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          author['name']?.toString() ?? 'Unknown',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          comment['createdAt']?.toString().isNotEmpty == true
+                              ? DateFormat.yMMMd().add_jm().format(
+                                  DateTime.parse(comment['createdAt'].toString()),
+                                )
+                              : '',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF9CA3AF),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(comment['content']?.toString() ?? ''),
+                        if (files.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            children: files
+                                .map(
+                                  (file) => ActionChip(
+                                    avatar: Icon(
+                                      file.mimeType?.startsWith('image/') == true
+                                          ? Icons.image
+                                          : Icons.description,
+                                      size: 16,
+                                    ),
+                                    label: Text(file.filename),
+                                    onPressed: () => _openAttachment(file),
+                                  ),
+                                )
+                                .toList(),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                );
+              }),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _EditProjectForm extends StatefulWidget {
   const _EditProjectForm({
     required this.project,
+    required this.givenAmount,
     required this.onSubmitted,
   });
 
   final ProjectModel project;
+  final double givenAmount;
   final VoidCallback onSubmitted;
 
   @override
@@ -721,6 +989,9 @@ class _EditProjectFormState extends State<_EditProjectForm> {
 
   @override
   Widget build(BuildContext context) {
+    final budget = double.tryParse(_budgetController.text.trim()) ?? 0;
+    final remaining = budget - widget.givenAmount;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       child: Form(
@@ -822,6 +1093,27 @@ class _EditProjectFormState extends State<_EditProjectForm> {
                 border: OutlineInputBorder(),
               ),
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              onChanged: (_) => setState(() {}),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _InfoChip(
+                    label: 'Given',
+                    value: NumberFormat.currency(symbol: '\$')
+                        .format(widget.givenAmount),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _InfoChip(
+                    label: 'Remaining',
+                    value: NumberFormat.currency(symbol: '\$')
+                        .format(remaining),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
             ListTile(

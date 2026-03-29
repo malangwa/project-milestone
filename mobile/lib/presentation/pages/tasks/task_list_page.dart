@@ -229,7 +229,8 @@ class _TaskListPageState extends State<TaskListPage> {
                       return ListView.separated(
                         padding: const EdgeInsets.fromLTRB(16, 0, 16, 88),
                         itemCount: tasks.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        separatorBuilder: (context, index) =>
+                            const SizedBox(height: 8),
                         itemBuilder: (context, index) {
                           final task = tasks[index];
                           return _TaskCard(

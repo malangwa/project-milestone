@@ -371,6 +371,8 @@ class _CreateProjectFormState extends State<_CreateProjectForm> {
 
   @override
   Widget build(BuildContext context) {
+    final budget = double.tryParse(_budgetController.text.trim()) ?? 0;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       child: Form(
@@ -471,6 +473,25 @@ class _CreateProjectFormState extends State<_CreateProjectForm> {
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
+              onChanged: (_) => setState(() {}),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _ProjectFigureCard(
+                    label: 'Given',
+                    value: NumberFormat.currency(symbol: '\$').format(0),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _ProjectFigureCard(
+                    label: 'Remaining',
+                    value: NumberFormat.currency(symbol: '\$').format(budget),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
             ListTile(
@@ -508,6 +529,35 @@ class _CreateProjectFormState extends State<_CreateProjectForm> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ProjectFigureCard extends StatelessWidget {
+  const _ProjectFigureCard({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3F4F6),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+          ),
+          const SizedBox(height: 4),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
+        ],
       ),
     );
   }
