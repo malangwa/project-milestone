@@ -68,7 +68,9 @@ const ProjectDetail = () => {
   const [selectedMaterialRequestId, setSelectedMaterialRequestId] = useState<string | null>(null);
   const [comments, setComments] = useState<any[]>([]);
   const [commentText, setCommentText] = useState('');
+  const [commentPhoto, setCommentPhoto] = useState<File | null>(null);
   const [commentSaving, setCommentSaving] = useState(false);
+  const [commentAttachments, setCommentAttachments] = useState<Record<string, any[]>>({});
   const [activities, setActivities] = useState<any[]>([]);
   const [attachments, setAttachments] = useState<any[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -142,7 +144,8 @@ const ProjectDetail = () => {
   }, [tab, id]);
 
   useEffect(() => {
-    if (!id || tab !== 'files') return;
+    if (!id) return;
+    if (tab !== 'files' && tab !== 'overview') return;
     attachmentsApi.getByEntity('project', id)
       .then((res) => setAttachments(res.data?.data || res.data || []))
       .catch(() => setAttachments([]));
@@ -188,17 +191,40 @@ const ProjectDetail = () => {
   };
 
   const postComment = async () => {
-    if (!commentText.trim() || !id) return;
+    if ((!commentText.trim() && !commentPhoto) || !id) return;
     setCommentSaving(true);
     try {
-      const res = await api.post('/comments', { entityType: 'project', entityId: id, content: commentText });
+      const content = commentText.trim() || (commentPhoto ? `📷 Photo update: ${commentPhoto.name}` : '');
+      const res = await api.post('/comments', { entityType: 'project', entityId: id, content });
       const created = res.data?.data || res.data;
+      if (commentPhoto && created?.id) {
+        try {
+          const uploadRes = await attachmentsApi.upload(commentPhoto, 'comment', created.id);
+          const uploaded = uploadRes.data?.data || uploadRes.data;
+          setCommentAttachments((prev) => ({ ...prev, [created.id]: [uploaded] }));
+        } catch {}
+      }
       setComments((prev) => [...prev, created]);
       setCommentText('');
+      setCommentPhoto(null);
     } catch {} finally {
       setCommentSaving(false);
     }
   };
+
+  const loadCommentAttachments = async (commentId: string) => {
+    try {
+      const res = await attachmentsApi.getByEntity('comment', commentId);
+      const list = res.data?.data || res.data || [];
+      if (list.length > 0) setCommentAttachments((prev) => ({ ...prev, [commentId]: list }));
+    } catch {}
+  };
+
+  useEffect(() => {
+    comments.forEach((c) => {
+      if (!commentAttachments[c.id]) loadCommentAttachments(c.id);
+    });
+  }, [comments]);
 
   const deleteComment = async (commentId: string) => {
     await api.delete(`/comments/${commentId}`);
@@ -216,7 +242,7 @@ const ProjectDetail = () => {
     { key: 'procurement', label: 'Procurement' },
     { key: 'issues', label: 'Issues' },
     { key: 'files', label: `Files${attachments.length > 0 ? ` (${attachments.length})` : ''}` },
-    { key: 'comments', label: `Comments${comments.length > 0 ? ` (${comments.length})` : ''}` },
+    { key: 'comments', label: `Updates${comments.length > 0 ? ` (${comments.length})` : ''}` },
     { key: 'activity', label: 'Activity' },
   ];
 
@@ -504,27 +530,94 @@ const ProjectDetail = () => {
       </div>
 
       {tab === 'overview' && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[{ label: 'Industry', value: project.industry },
-            { label: 'Location', value: project.location || 'N/A' },
-            { label: 'Status', value: project.status.replace('_', ' ') },
-            { label: 'Budget', value: project.budget > 0 ? money(projectBudget) : 'N/A' },
-            { label: 'Given So Far', value: money(givenSoFar) },
-            { label: 'Approved Materials', value: money(approvedMaterialCommitment) },
-            { label: 'Owed', value: money(remainingOwed) },
-            { label: 'Created', value: new Date(project.createdAt).toLocaleDateString() },
-          ].map(({ label, value }) => (
-            <div key={label} className="bg-white border border-gray-200 rounded-xl p-4">
-              <p className="text-xs text-gray-500">{label}</p>
-              <p className={`font-semibold text-gray-900 mt-1 ${typeof value === 'string' && value === 'N/A' ? '' : 'capitalize'}`}>{value}</p>
+        <div className="space-y-6">
+          {/* Budget Summary */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="bg-white border border-gray-200 rounded-xl p-4">
+              <p className="text-xs text-gray-500">Total Budget</p>
+              <p className="text-xl font-bold text-gray-900 mt-1">{project.budget > 0 ? money(projectBudget) : 'N/A'}</p>
             </div>
-          ))}
-          {overBudget > 0 && (
-            <div className="bg-red-50 border border-red-200 rounded-xl p-4 md:col-span-4">
-              <p className="text-xs text-red-600">Over budget</p>
-              <p className="font-semibold text-red-700 mt-1">{money(overBudget)} spent above the budget</p>
+            <div className="bg-white border border-gray-200 rounded-xl p-4">
+              <p className="text-xs text-gray-500">Given (Expenses)</p>
+              <p className="text-xl font-bold text-green-600 mt-1">{money(givenSoFar)}</p>
+            </div>
+            <div className="bg-white border border-gray-200 rounded-xl p-4">
+              <p className="text-xs text-gray-500">Materials Approved</p>
+              <p className="text-xl font-bold text-blue-600 mt-1">{money(approvedMaterialCommitment)}</p>
+            </div>
+            <div className="bg-white border border-gray-200 rounded-xl p-4">
+              <p className="text-xs text-gray-500">Remaining</p>
+              <p className={`text-xl font-bold mt-1 ${remainingOwed > 0 ? 'text-orange-600' : 'text-gray-400'}`}>{money(remainingOwed)}</p>
+            </div>
+            <div className={`border rounded-xl p-4 ${overBudget > 0 ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
+              <p className={`text-xs ${overBudget > 0 ? 'text-red-600' : 'text-green-600'}`}>Status</p>
+              <p className={`text-xl font-bold mt-1 ${overBudget > 0 ? 'text-red-700' : 'text-green-700'}`}>
+                {overBudget > 0 ? `-${money(overBudget)}` : 'On track'}
+              </p>
+            </div>
+          </div>
+
+          {/* Budget progress bar */}
+          {projectBudget > 0 && (
+            <div className="bg-white border border-gray-200 rounded-xl p-4">
+              <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
+                <span>Budget utilization</span>
+                <span>{Math.min(100, Math.round((totalCommitted / projectBudget) * 100))}%</span>
+              </div>
+              <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
+                <div className={`h-3 rounded-full transition-all ${totalCommitted > projectBudget ? 'bg-red-500' : totalCommitted > projectBudget * 0.8 ? 'bg-orange-500' : 'bg-green-500'}`}
+                  style={{ width: `${Math.min(100, (totalCommitted / projectBudget) * 100)}%` }} />
+              </div>
             </div>
           )}
+
+          {/* Project info cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[{ label: 'Industry', value: project.industry },
+              { label: 'Location', value: project.location || 'N/A' },
+              { label: 'Status', value: project.status.replace('_', ' ') },
+              { label: 'Created', value: new Date(project.createdAt).toLocaleDateString() },
+            ].map(({ label, value }) => (
+              <div key={label} className="bg-white border border-gray-200 rounded-xl p-4">
+                <p className="text-xs text-gray-500">{label}</p>
+                <p className="font-semibold text-gray-900 mt-1 capitalize">{value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Quick Upload Section */}
+          <div className="bg-white border border-gray-200 rounded-xl p-5">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h3 className="font-semibold text-gray-900">Project Files & Photos</h3>
+                <p className="text-xs text-gray-500 mt-0.5">Upload progress photos, receipts, documents</p>
+              </div>
+              <div className="flex gap-2">
+                <label className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg cursor-pointer bg-blue-600 text-white hover:bg-blue-700 transition-colors">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                  Upload
+                  <input type="file" multiple className="hidden" onChange={handleFileUpload} />
+                </label>
+                <button onClick={() => setTab('files')} className="text-sm text-blue-600 hover:text-blue-700 px-3 py-2 border border-blue-200 rounded-lg hover:bg-blue-50">
+                  View all ({attachments.length})
+                </button>
+              </div>
+            </div>
+            {attachments.length > 0 ? (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {attachments.slice(0, 6).map((a: any) => (
+                  <button key={a.id} onClick={() => handleDownload(a)}
+                    className="inline-flex items-center gap-1.5 text-xs bg-gray-50 text-gray-700 border border-gray-200 px-3 py-2 rounded-lg hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-colors">
+                    {a.mimeType?.startsWith('image/') ? '🖼️' : a.mimeType?.includes('pdf') ? '📄' : '📎'}
+                    <span className="truncate max-w-[120px]">{a.filename}</span>
+                  </button>
+                ))}
+                {attachments.length > 6 && <span className="text-xs text-gray-400 self-center">+{attachments.length - 6} more</span>}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400 mt-2">No files uploaded yet. Upload progress photos, receipts, or documents.</p>
+            )}
+          </div>
         </div>
       )}
 
@@ -601,24 +694,38 @@ const ProjectDetail = () => {
       {tab === 'comments' && (
         <div className="space-y-4">
           <div className="bg-white border border-gray-200 rounded-xl p-4">
+            <p className="text-sm font-medium text-gray-700 mb-2">Post a progress update</p>
             <textarea
               value={commentText}
               onChange={(e) => setCommentText(e.target.value)}
-              placeholder="Write a comment..."
+              placeholder="Share progress, milestones achieved, issues encountered..."
               rows={3}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
             />
-            <div className="flex justify-end mt-2">
-              <button onClick={postComment} disabled={!commentText.trim() || commentSaving}
+            {commentPhoto && (
+              <div className="mt-2 flex items-center gap-2 bg-blue-50 px-3 py-2 rounded-lg">
+                <span className="text-xs text-blue-700">📷 {commentPhoto.name}</span>
+                <button onClick={() => setCommentPhoto(null)} className="text-xs text-red-500 hover:text-red-700">Remove</button>
+              </div>
+            )}
+            <div className="flex items-center justify-between mt-2">
+              <label className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-blue-600 cursor-pointer px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                Add photo
+                <input type="file" accept="image/*" className="hidden" onChange={(e) => setCommentPhoto(e.target.files?.[0] || null)} />
+              </label>
+              <button onClick={postComment} disabled={(!commentText.trim() && !commentPhoto) || commentSaving}
                 className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50">
-                {commentSaving ? 'Posting...' : 'Post Comment'}
+                {commentSaving ? 'Posting...' : 'Post Update'}
               </button>
             </div>
           </div>
           {comments.length === 0 ? (
-            <div className="text-center py-10 text-gray-400">No comments yet. Be the first to comment!</div>
+            <div className="text-center py-10 text-gray-400">No progress updates yet. Post the first one!</div>
           ) : (
-            comments.map((c) => (
+            comments.map((c) => {
+              const cPhotos = commentAttachments[c.id] || [];
+              return (
               <div key={c.id} className="bg-white border border-gray-200 rounded-xl px-5 py-4">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2 mb-1">
@@ -633,8 +740,19 @@ const ProjectDetail = () => {
                   )}
                 </div>
                 <p className="text-sm text-gray-700 ml-9">{c.content}</p>
+                {cPhotos.length > 0 && (
+                  <div className="ml-9 mt-2 flex flex-wrap gap-2">
+                    {cPhotos.map((a: any) => (
+                      <button key={a.id} onClick={() => handleDownload(a)}
+                        className="inline-flex items-center gap-1.5 text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg hover:bg-blue-100">
+                        {a.mimeType?.startsWith('image/') ? '🖼️' : '📎'} {a.filename}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-            ))
+              );
+            })
           )}
         </div>
       )}
@@ -851,7 +969,17 @@ const ProjectDetail = () => {
                   </div>
 
                   {canEdit && request.status === 'approved' && (
-                    <div className="flex justify-end">
+                    <div className="flex items-center justify-end gap-2">
+                      <label className="px-3 py-1.5 text-xs font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 cursor-pointer inline-flex items-center gap-1">
+                        📎 Upload Receipt
+                        <input type="file" accept="image/*,.pdf" className="hidden" onChange={async (ev) => {
+                          const f = ev.target.files?.[0];
+                          if (f) {
+                            await attachmentsApi.upload(f, 'material_request', request.id);
+                            ev.target.value = '';
+                          }
+                        }} />
+                      </label>
                       <button
                         type="button"
                         onClick={() => openProcurementFromRequest(request.id)}

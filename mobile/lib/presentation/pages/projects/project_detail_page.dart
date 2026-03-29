@@ -154,13 +154,18 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
                 data.tasks.where((t) => t.status == 'done').length;
             final totalExpenses =
                 data.expenses.fold<double>(0, (s, e) => s + e.amount);
+            final approvedExpenses = data.expenses
+                .where((e) => e.status == 'approved')
+                .fold<double>(0, (s, e) => s + e.amount);
             final completedMilestones =
                 data.milestones.where((m) => m.status == 'completed').length;
+            final budget = data.project.budget;
+            final remaining = budget > 0 ? budget - approvedExpenses : 0.0;
+            final budgetPct = budget > 0 ? (approvedExpenses / budget * 100).clamp(0, 100) : 0.0;
 
             return ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                // Project header
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(20),
@@ -191,7 +196,15 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
                           children: [
                             _InfoChip(
                               label: 'Budget',
-                              value: currency.format(data.project.budget),
+                              value: currency.format(budget),
+                            ),
+                            _InfoChip(
+                              label: 'Given',
+                              value: currency.format(approvedExpenses),
+                            ),
+                            _InfoChip(
+                              label: 'Remaining',
+                              value: currency.format(remaining),
                             ),
                             _InfoChip(
                               label: 'Tasks',
@@ -206,12 +219,29 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
                               label: 'Members',
                               value: '${data.members.length}',
                             ),
-                            _InfoChip(
-                              label: 'Expenses',
-                              value: currency.format(totalExpenses),
-                            ),
                           ],
                         ),
+                        if (budget > 0) ...[
+                          const SizedBox(height: 16),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: LinearProgressIndicator(
+                              value: budgetPct / 100,
+                              minHeight: 8,
+                              backgroundColor: const Color(0xFFE5E7EB),
+                              color: approvedExpenses > budget
+                                  ? Colors.red
+                                  : approvedExpenses > budget * 0.8
+                                      ? Colors.orange
+                                      : Colors.green,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${budgetPct.toStringAsFixed(0)}% of budget used',
+                            style: const TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -402,14 +432,20 @@ class _FilesSectionState extends State<_FilesSection> {
   Future<void> _download(AttachmentModel attachment) async {
     try {
       final url = await AttachmentService.instance.getDownloadUrl(attachment.id);
-      if (url.isNotEmpty) {
-        await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-      } else if (attachment.url.isNotEmpty) {
-        await launchUrl(Uri.parse(attachment.url), mode: LaunchMode.externalApplication);
+      final target = url.isNotEmpty ? url : attachment.url;
+      if (target.isNotEmpty) {
+        final uri = Uri.parse(target);
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
+        } else {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        }
       }
-    } catch (_) {
-      if (attachment.url.isNotEmpty) {
-        await launchUrl(Uri.parse(attachment.url), mode: LaunchMode.externalApplication);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not open file: $e')),
+        );
       }
     }
   }

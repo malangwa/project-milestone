@@ -597,14 +597,20 @@ class _ExpenseCardState extends State<_ExpenseCard> {
   Future<void> _viewReceipt(AttachmentModel a) async {
     try {
       final url = await AttachmentService.instance.getDownloadUrl(a.id);
-      if (url.isNotEmpty) {
-        await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-      } else if (a.url.isNotEmpty) {
-        await launchUrl(Uri.parse(a.url), mode: LaunchMode.externalApplication);
+      final target = url.isNotEmpty ? url : a.url;
+      if (target.isNotEmpty) {
+        final uri = Uri.parse(target);
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
+        } else {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        }
       }
-    } catch (_) {
-      if (a.url.isNotEmpty) {
-        await launchUrl(Uri.parse(a.url), mode: LaunchMode.externalApplication);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not open file: $e')),
+        );
       }
     }
   }
