@@ -5,6 +5,7 @@ import { expensesApi } from '../../api/expenses.api';
 import { materialRequestsApi } from '../../api/material-requests.api';
 import { issuesApi } from '../../api/issues.api';
 import { purchaseOrdersApi } from '../../api/procurement.api';
+import { commentsApi } from '../../api/comments.api';
 
 const Reports = () => {
   const [projects, setProjects] = useState<any[]>([]);
@@ -29,12 +30,14 @@ const Reports = () => {
       materialRequestsApi.getByProject(selectedProject),
       issuesApi.getByProject(selectedProject),
       purchaseOrdersApi.getByProject(selectedProject),
-    ]).then(([tasksRes, expensesRes, materialsRes, issuesRes, ordersRes]) => {
+      commentsApi.getByEntity('project', selectedProject),
+    ]).then(([tasksRes, expensesRes, materialsRes, issuesRes, ordersRes, commentsRes]) => {
       const tasks = tasksRes.data?.data || tasksRes.data || [];
       const expenses = expensesRes.data?.data || expensesRes.data || [];
       const materials = materialsRes.data?.data || materialsRes.data || [];
       const issues = issuesRes.data?.data || issuesRes.data || [];
       const purchaseOrders = ordersRes.data?.data || ordersRes.data || [];
+      const comments = commentsRes.data?.data || commentsRes.data || [];
       const approvedMaterials = materials.filter((m: any) => m.status === 'approved').reduce((s: number, m: any) => s + Number(m.requestedAmount || 0), 0);
       const pendingOrders = purchaseOrders.filter((order: any) => order.status === 'pending_approval');
       const approvedOrders = purchaseOrders.filter((order: any) => ['approved', 'sent', 'partially_received', 'received', 'closed'].includes(order.status));
@@ -68,6 +71,10 @@ const Reports = () => {
           open: issues.filter((i: any) => i.status === 'open').length,
           resolved: issues.filter((i: any) => i.status === 'resolved').length,
           critical: issues.filter((i: any) => i.priority === 'critical').length,
+        },
+        progress: {
+          total: comments.length,
+          recent: comments.slice(-5).reverse(),
         },
         project: projects.find((p) => p.id === selectedProject),
       });
@@ -131,6 +138,36 @@ const Reports = () => {
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+            <div className="bg-white border border-gray-200 rounded-2xl p-6">
+              <h3 className="text-sm font-semibold text-gray-700 mb-4">Progress Updates</h3>
+              <div className="space-y-2 mb-4">
+                {[
+                  { label: 'Total Updates', value: report.progress.total, color: 'text-gray-900' },
+                  { label: 'Given Cash', value: `$${Number(report.project?.givenCash || 0).toLocaleString()}`, color: 'text-green-600' },
+                  { label: 'Remaining Cash', value: `$${Math.max(0, Number(report.project?.budget || 0) - Number(report.project?.givenCash || 0)).toLocaleString()}`, color: 'text-blue-600' },
+                ].map(({ label, value, color }) => (
+                  <div key={label} className="flex items-center justify-between gap-3">
+                    <span className="text-sm text-gray-500">{label}</span>
+                    <span className={`font-semibold ${color}`}>{value}</span>
+                  </div>
+                ))}
+              </div>
+              {report.progress.recent.length === 0 ? (
+                <p className="text-sm text-gray-400">No progress updates yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {report.progress.recent.map((item: any) => (
+                    <div key={item.id} className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-sm font-medium text-gray-900">{item.author?.name ?? 'Unknown'}</span>
+                        <span className="text-xs text-gray-400">{item.createdAt ? new Date(item.createdAt).toLocaleString() : ''}</span>
+                      </div>
+                      <p className="text-sm text-gray-600 mt-2 line-clamp-3">{item.content || 'No details provided.'}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
             <div className="bg-white border border-gray-200 rounded-2xl p-6">
               <h3 className="text-sm font-semibold text-gray-700 mb-4">Tasks</h3>
               <div className="space-y-2">

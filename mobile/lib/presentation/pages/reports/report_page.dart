@@ -3,10 +3,23 @@ import 'package:intl/intl.dart';
 
 import '../../../data/models/project_model.dart';
 import '../../../data/models/report_model.dart';
+import '../../../data/services/comment_service.dart';
 import '../../../data/services/project_service.dart';
 import '../../../data/services/report_service.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/loading_indicator.dart';
+
+class _ProjectReportBundle {
+  const _ProjectReportBundle({
+    required this.project,
+    required this.summary,
+    required this.updates,
+  });
+
+  final ProjectModel project;
+  final ProjectSummaryModel summary;
+  final List<Map<String, dynamic>> updates;
+}
 
 class ReportPage extends StatefulWidget {
   const ReportPage({super.key});
@@ -17,7 +30,7 @@ class ReportPage extends StatefulWidget {
 
 class _ReportPageState extends State<ReportPage> {
   late Future<List<ProjectModel>> _projectsFuture;
-  Future<ProjectSummaryModel>? _summaryFuture;
+  Future<_ProjectReportBundle>? _reportFuture;
   String? _selectedProjectId;
 
   @override
@@ -31,13 +44,24 @@ class _ReportPageState extends State<ReportPage> {
       final projects = await ProjectService.instance.getProjects();
       if (projects.isNotEmpty && _selectedProjectId == null) {
         _selectedProjectId = projects.first.id;
-        _summaryFuture =
-            ReportService.instance.getProjectSummary(_selectedProjectId!);
+        _reportFuture = _loadReport(projects.first);
       }
       return projects;
     } catch (_) {
       return [];
     }
+  }
+
+  Future<_ProjectReportBundle> _loadReport(ProjectModel project) async {
+    final results = await Future.wait<dynamic>([
+      ReportService.instance.getProjectSummary(project.id),
+      CommentService.instance.getByEntity('project', project.id),
+    ]);
+    return _ProjectReportBundle(
+      project: project,
+      summary: results[0] as ProjectSummaryModel,
+      updates: results[1] as List<Map<String, dynamic>>,
+    );
   }
 
   @override
@@ -80,10 +104,10 @@ class _ReportPageState extends State<ReportPage> {
                     .toList(),
                 onChanged: (value) {
                   if (value == null) return;
+                  final project = projects.where((item) => item.id == value).first;
                   setState(() {
                     _selectedProjectId = value;
-                    _summaryFuture =
-                        ReportService.instance.getProjectSummary(value);
+                    _reportFuture = _loadReport(project);
                   });
                 },
               ),
@@ -92,14 +116,15 @@ class _ReportPageState extends State<ReportPage> {
               child: RefreshIndicator(
                 onRefresh: () async {
                   if (_selectedProjectId == null) return;
+                  final project =
+                      projects.where((item) => item.id == _selectedProjectId).first;
                   setState(() {
-                    _summaryFuture = ReportService.instance
-                        .getProjectSummary(_selectedProjectId!);
+                    _reportFuture = _loadReport(project);
                   });
-                  await _summaryFuture!;
+                  await _reportFuture!;
                 },
-                child: FutureBuilder<ProjectSummaryModel>(
-                  future: _summaryFuture,
+                child: FutureBuilder<_ProjectReportBundle>(
+                  future: _reportFuture,
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const LoadingIndicator(message: 'Loading report...');
@@ -114,9 +139,11 @@ class _ReportPageState extends State<ReportPage> {
                             title: 'Select a project to view its report.',
                             onRetry: () {
                               if (_selectedProjectId == null) return;
+                              final project = projects
+                                  .where((item) => item.id == _selectedProjectId)
+                                  .first;
                               setState(() {
-                                _summaryFuture = ReportService.instance
-                                    .getProjectSummary(_selectedProjectId!);
+                                _reportFuture = _loadReport(project);
                               });
                             },
                           ),
@@ -124,10 +151,53 @@ class _ReportPageState extends State<ReportPage> {
                       );
                     }
 
-                    final summary = snapshot.data!;
+                    final bundle = snapshot.data!;
+                    final summary = bundle.summary;
+                    final project = bundle.project;
+                    final recentUpdates = bundle.updates.reversed.take(5).toList();
                     return ListView(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                       children: [
+                        _ReportCard(
+                          title: 'Progress Updates',
+                          children: [
+                            _RowValue(
+                              label: 'Total updates',
+                              value: '${bundle.updates.length}',
+                            ),
+                            _RowValue(
+                              label: 'Given cash',
+                              value: currency.format(project.givenCash),
+                            ),
+                            _RowValue(
+                              label: 'Remaining budget',
+                              value: currency.format(
+                                (project.budget - project.givenCash) < 0
+                                    ? 0
+                                    : (project.budget - project.givenCash),
+                              ),
+                            ),
+                            if (recentUpdates.isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              ...recentUpdates.map(
+                                (item) => _UpdatePreview(
+                                  author:
+                                      ((item['author'] as Map?)?['name'] ??
+                                              'Unknown')
+                                          .toString(),
+                                  content:
+                                      (item['content'] ?? '').toString(),
+                                  createdAt:
+                                      (item['createdAt'] ?? '').toString(),
+                                ),
+                              ),
+                            ] else
+                              const Text(
+                                'No progress updates yet.',
+                                style: TextStyle(color: Color(0xFF9CA3AF)),
+                              ),
+                          ],
+                        ),
                         _ReportCard(
                           title: 'Tasks',
                           children: summary.tasks
@@ -181,6 +251,53 @@ class _ReportPageState extends State<ReportPage> {
           ],
         );
       },
+    );
+  }
+}
+
+class _UpdatePreview extends StatelessWidget {
+  const _UpdatePreview({
+    required this.author,
+    required this.content,
+    required this.createdAt,
+  });
+
+  final String author;
+  final String content;
+  final String createdAt;
+
+  @override
+  Widget build(BuildContext context) {
+    final parsed = DateTime.tryParse(createdAt);
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF9FAFB),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(author, style: const TextStyle(fontWeight: FontWeight.w600)),
+            if (parsed != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  DateFormat.yMMMd().add_jm().format(parsed),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF9CA3AF),
+                  ),
+                ),
+              ),
+            const SizedBox(height: 6),
+            Text(content.isEmpty ? 'No details provided.' : content),
+          ],
+        ),
+      ),
     );
   }
 }

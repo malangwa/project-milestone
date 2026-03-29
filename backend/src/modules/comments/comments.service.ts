@@ -11,7 +11,14 @@ export class CommentsService {
   ) {}
 
   async create(data: any): Promise<Comment> {
-    return this.repo.save(this.repo.create(data) as unknown as Comment);
+    const saved = await this.repo.save(
+      this.repo.create(data) as unknown as Comment,
+    );
+    const comment = await this.repo.findOne({
+      where: { id: saved.id },
+      relations: ['author'],
+    });
+    return comment ?? saved;
   }
 
   async findByEntity(

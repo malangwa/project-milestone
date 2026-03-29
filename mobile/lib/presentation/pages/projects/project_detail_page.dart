@@ -47,6 +47,7 @@ class ProjectDetailPage extends StatefulWidget {
 
 class _ProjectDetailPageState extends State<ProjectDetailPage> {
   late Future<_Bundle> _future;
+  int _refreshTick = 0;
 
   @override
   void initState() {
@@ -122,7 +123,10 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
       ),
       body: RefreshIndicator(
         onRefresh: () async {
-          setState(() => _future = _load());
+          setState(() {
+            _future = _load();
+            _refreshTick++;
+          });
           await _future;
         },
         child: FutureBuilder<_Bundle>(
@@ -368,7 +372,10 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
                 const SizedBox(height: 16),
 
                 // Progress updates
-                _ProgressUpdatesSection(projectId: widget.projectId),
+                _ProgressUpdatesSection(
+                  projectId: widget.projectId,
+                  refreshTick: _refreshTick,
+                ),
               ],
             );
           },
@@ -578,9 +585,13 @@ class _FilesSectionState extends State<_FilesSection> {
 }
 
 class _ProgressUpdatesSection extends StatefulWidget {
-  const _ProgressUpdatesSection({required this.projectId});
+  const _ProgressUpdatesSection({
+    required this.projectId,
+    required this.refreshTick,
+  });
 
   final String projectId;
+  final int refreshTick;
 
   @override
   State<_ProgressUpdatesSection> createState() => _ProgressUpdatesSectionState();
@@ -601,12 +612,26 @@ class _ProgressUpdatesSectionState extends State<_ProgressUpdatesSection> {
   }
 
   @override
+  void didUpdateWidget(covariant _ProgressUpdatesSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.projectId != widget.projectId ||
+        oldWidget.refreshTick != widget.refreshTick) {
+      _loadComments(showLoader: true);
+    }
+  }
+
+  @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
 
-  Future<void> _loadComments() async {
+  Future<void> _loadComments({bool showLoader = false}) async {
+    if (showLoader && mounted) {
+      setState(() {
+        _loading = true;
+      });
+    }
     try {
       final comments = await CommentService.instance.getByEntity(
         'project',
@@ -615,6 +640,7 @@ class _ProgressUpdatesSectionState extends State<_ProgressUpdatesSection> {
       if (!mounted) return;
       setState(() {
         _comments = comments;
+        _attachments.clear();
         _loading = false;
       });
       for (final comment in comments) {
@@ -665,10 +691,10 @@ class _ProgressUpdatesSectionState extends State<_ProgressUpdatesSection> {
         _attachments[commentId] = [uploaded];
       }
       _controller.clear();
+      await _loadComments();
       if (mounted) {
         setState(() {
           _photo = null;
-          _comments = [..._comments, created];
         });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Progress update posted')),

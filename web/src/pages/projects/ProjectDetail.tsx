@@ -143,7 +143,7 @@ const ProjectDetail = () => {
   }, [tab, id]);
 
   useEffect(() => {
-    if (!id || tab !== 'comments') return;
+    if (!id || (tab !== 'comments' && tab !== 'overview')) return;
     api.get(`/comments?entityType=project&entityId=${id}`)
       .then((res) => setComments(res.data?.data || res.data || []))
       .catch(() => {});
@@ -328,6 +328,7 @@ const ProjectDetail = () => {
   const editedBudget = Number(editForm.budget || 0);
   const editedGivenCash = Number(editForm.givenCash || 0);
   const editedRemaining = Math.max(0, editedBudget - editedGivenCash);
+  const recentComments = comments.slice(-5).reverse();
 
   const money = (value: number | string | null | undefined) => `$${Number(value ?? 0).toLocaleString()}`;
 
@@ -633,6 +634,70 @@ const ProjectDetail = () => {
             ) : (
               <p className="text-sm text-gray-400 mt-2">No files uploaded yet. Upload progress photos, receipts, or documents.</p>
             )}
+          </div>
+
+          <div className="bg-white border border-gray-200 rounded-xl p-5">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <div>
+                <h3 className="font-semibold text-gray-900">Continuous Progress Log</h3>
+                <p className="text-xs text-gray-500 mt-0.5">Post field updates here and they will also appear in reports.</p>
+              </div>
+              <button onClick={() => setTab('comments')} className="text-sm text-blue-600 hover:text-blue-700 px-3 py-2 border border-blue-200 rounded-lg hover:bg-blue-50">
+                View all updates
+              </button>
+            </div>
+            <textarea
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+              placeholder="Share progress, milestones achieved, issues encountered..."
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+            />
+            {commentPhoto && (
+              <div className="mt-2 flex items-center gap-2 bg-blue-50 px-3 py-2 rounded-lg">
+                <span className="text-xs text-blue-700">📷 {commentPhoto.name}</span>
+                <button onClick={() => setCommentPhoto(null)} className="text-xs text-red-500 hover:text-red-700">Remove</button>
+              </div>
+            )}
+            <div className="flex items-center justify-between mt-2">
+              <label className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-blue-600 cursor-pointer px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                Add photo
+                <input type="file" accept="image/*" className="hidden" onChange={(e) => setCommentPhoto(e.target.files?.[0] || null)} />
+              </label>
+              <button onClick={postComment} disabled={(!commentText.trim() && !commentPhoto) || commentSaving}
+                className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                {commentSaving ? 'Posting...' : 'Post Update'}
+              </button>
+            </div>
+            <div className="mt-4 space-y-3">
+              {recentComments.length === 0 ? (
+                <p className="text-sm text-gray-400">No progress updates yet. Post the first one.</p>
+              ) : (
+                recentComments.map((c) => {
+                  const cPhotos = commentAttachments[c.id] || [];
+                  return (
+                    <div key={c.id} className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-sm font-medium text-gray-900">{c.author?.name ?? 'Unknown'}</span>
+                        <span className="text-xs text-gray-400">{c.createdAt ? new Date(c.createdAt).toLocaleString() : ''}</span>
+                      </div>
+                      <p className="text-sm text-gray-600 mt-2">{c.content}</p>
+                      {cPhotos.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {cPhotos.map((a: any) => (
+                            <button key={a.id} onClick={() => handleDownload(a)}
+                              className="inline-flex items-center gap-1.5 text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg hover:bg-blue-100">
+                              {a.mimeType?.startsWith('image/') ? '🖼️' : '📎'} {a.filename}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
         </div>
       )}
