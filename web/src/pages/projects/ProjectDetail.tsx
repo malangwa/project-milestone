@@ -106,9 +106,9 @@ const ProjectDetail = () => {
   }, [id]);
 
   useEffect(() => {
-    if (!id || tab === 'overview' || tab === 'comments' || tab === 'activity' || tab === 'procurement') return;
+    if (!id || tab === 'overview' || tab === 'comments' || tab === 'activity' || tab === 'procurement' || tab === 'files') return;
     setTabLoading(true);
-    const fetchers: Record<string, () => Promise<any>> = {
+    const fetchers: Partial<Record<Tab, () => Promise<any>>> = {
       milestones: () => milestonesApi.getByProject(id),
       tasks: () => Promise.all([
         tasksApi.getByProject(id),
@@ -121,7 +121,13 @@ const ProjectDetail = () => {
       issues: () => issuesApi.getByProject(id),
       members: () => projectsApi.getMembers(id),
     };
-    fetchers[tab]()
+    const fetchTabData = fetchers[tab];
+    if (!fetchTabData) {
+      setData([]);
+      setTabLoading(false);
+      return;
+    }
+    fetchTabData()
       .then((res) => {
         if (tab === 'tasks' && Array.isArray(res)) {
           const [tasksRes, membersRes, stockRes] = res;
