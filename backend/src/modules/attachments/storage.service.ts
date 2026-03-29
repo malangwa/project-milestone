@@ -19,12 +19,13 @@ export class StorageService {
 
   constructor(private readonly config: ConfigService) {
     const accountId = config.get<string>('r2.accountId');
-    this.bucket = config.get<string>('r2.bucketName') || 'project-milestone-files';
+    this.bucket = config.get<string>('r2.bucketName') || 'milestone';
     this.publicUrl = config.get<string>('r2.publicUrl') || '';
 
     this.s3 = new S3Client({
       region: 'auto',
       endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+      // Cloudflare R2 signed URLs need path-style addressing.
       forcePathStyle: true,
       credentials: {
         accessKeyId: config.get<string>('r2.accessKeyId') || '',
