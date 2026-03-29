@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { attachmentsApi } from '../../api/attachments.api';
 import { tasksApi } from '../../api/tasks.api';
 import { projectsApi } from '../../api/projects.api';
 import { inventoryApi } from '../../api/procurement.api';
@@ -35,6 +36,7 @@ const TaskList = () => {
   });
   const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState('all');
+  const [taskAttachments, setTaskAttachments] = useState<Record<string, any[]>>({});
 
   useEffect(() => {
     projectsApi.getAll().then((res) => {
@@ -73,6 +75,37 @@ const TaskList = () => {
       setStockItems(stockRes.data?.data || stockRes.data || []);
     });
   };
+
+  const loadTaskAttachments = async (taskId: string) => {
+    try {
+      const res = await attachmentsApi.getByEntity('task', taskId);
+      const list = res.data?.data || res.data || [];
+      setTaskAttachments((prev) => ({ ...prev, [taskId]: list }));
+    } catch {}
+  };
+
+  const handleUploadPhoto = async (taskId: string, file: File) => {
+    try {
+      await attachmentsApi.upload(file, 'task', taskId);
+      loadTaskAttachments(taskId);
+    } catch {}
+  };
+
+  const handleViewAttachment = async (attachment: any) => {
+    try {
+      const res = await attachmentsApi.getDownloadUrl(attachment.id);
+      const url = res.data?.url || res.data?.data?.url;
+      if (url) window.open(url, '_blank');
+    } catch {
+      if (attachment.url) window.open(attachment.url, '_blank');
+    }
+  };
+
+  useEffect(() => {
+    tasks.forEach((t) => {
+      if (!taskAttachments[t.id]) loadTaskAttachments(t.id);
+    });
+  }, [tasks]);
 
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this task?')) return;
@@ -188,43 +221,72 @@ const TaskList = () => {
         <div className="text-center py-16 text-gray-400">No tasks found.</div>
       ) : (
         <div className="space-y-2">
-          {filtered.map((t) => (
-            <div key={t.id} className="bg-white border border-gray-200 rounded-xl px-5 py-4 flex items-center gap-4 hover:border-blue-200 transition-colors group">
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-gray-900 truncate">{t.title}</p>
-                {t.description && <p className="text-xs text-gray-500 truncate mt-0.5">{t.description}</p>}
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                  <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
-                    {t.assignedTo?.name || 'Unassigned'}
-                  </span>
-                  <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">
-                    {t.materials?.length ? `${t.materials.length} material${t.materials.length !== 1 ? 's' : ''}` : 'No materials'}
-                  </span>
-                </div>
-                {t.materials?.length ? (
-                  <div className="mt-2 text-xs text-gray-500 space-y-1">
-                    {t.materials.slice(0, 2).map((material, index) => (
-                      <p key={`${t.id}-${index}`}>
-                        {material.quantity} {material.unit} {material.name}
-                        {material.source === 'store' && material.stockItemName ? ` · from ${material.stockItemName}` : ''}
-                      </p>
-                    ))}
+          {filtered.map((t) => {
+            const photos = taskAttachments[t.id] || [];
+            return (
+            <div key={t.id} className="bg-white border border-gray-200 rounded-xl px-5 py-4 hover:border-blue-200 transition-colors group">
+              <div className="flex items-center gap-4">
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-gray-900 truncate">{t.title}</p>
+                  {t.description && <p className="text-xs text-gray-500 truncate mt-0.5">{t.description}</p>}
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                    <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+                      {t.assignedTo?.name || 'Unassigned'}
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">
+                      {t.materials?.length ? `${t.materials.length} material${t.materials.length !== 1 ? 's' : ''}` : 'No materials'}
+                    </span>
                   </div>
-                ) : null}
+                  {t.materials?.length ? (
+                    <div className="mt-2 text-xs text-gray-500 space-y-1">
+                      {t.materials.slice(0, 2).map((material, index) => (
+                        <p key={`${t.id}-${index}`}>
+                          {material.quantity} {material.unit} {material.name}
+                          {material.source === 'store' && material.stockItemName ? ` · from ${material.stockItemName}` : ''}
+                        </p>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {t.dueDate && <span className="text-xs text-gray-400">{new Date(t.dueDate).toLocaleDateString()}</span>}
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${priorityColor[t.priority]}`}>{t.priority}</span>
+                  <label className="text-xs text-blue-600 hover:text-blue-700 cursor-pointer px-2 py-1 rounded hover:bg-blue-50 flex items-center gap-1">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                    Photo
+                    <input type="file" accept="image/*,.pdf" className="hidden" onChange={(ev) => {
+                      const f = ev.target.files?.[0];
+                      if (f) handleUploadPhoto(t.id, f);
+                      ev.target.value = '';
+                    }} />
+                  </label>
+                  <select value={t.status}
+                    onChange={(e) => handleStatusChange(t.id, e.target.value)}
+                    className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-400 bg-gray-50 capitalize">
+                    {STATUSES.map((s) => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
+                  </select>
+                  <button onClick={() => handleDelete(t.id)}
+                    className="text-xs text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">Delete</button>
+                </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
-                {t.dueDate && <span className="text-xs text-gray-400">{new Date(t.dueDate).toLocaleDateString()}</span>}
-                <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${priorityColor[t.priority]}`}>{t.priority}</span>
-                <select value={t.status}
-                  onChange={(e) => handleStatusChange(t.id, e.target.value)}
-                  className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-400 bg-gray-50 capitalize">
-                  {STATUSES.map((s) => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
-                </select>
-                <button onClick={() => handleDelete(t.id)}
-                  className="text-xs text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">Delete</button>
-              </div>
+              {photos.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {photos.map((a: any) => (
+                    <button key={a.id} onClick={() => handleViewAttachment(a)}
+                      className="inline-flex items-center gap-1.5 text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors">
+                      {a.mimeType?.startsWith('image/') ? (
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                      ) : (
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                      )}
+                      {a.filename}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

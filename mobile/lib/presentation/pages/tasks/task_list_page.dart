@@ -1,7 +1,11 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../../data/models/attachment_model.dart';
 import '../../../data/models/project_model.dart';
 import '../../../data/models/task_model.dart';
+import '../../../data/services/attachment_service.dart';
 import '../../../data/services/project_service.dart';
 import '../../../data/services/task_service.dart';
 import '../../widgets/empty_state.dart';
@@ -225,54 +229,14 @@ class _TaskListPageState extends State<TaskListPage> {
                       return ListView.separated(
                         padding: const EdgeInsets.fromLTRB(16, 0, 16, 88),
                         itemCount: tasks.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 8),
+                        separatorBuilder: (_, __) => const SizedBox(height: 8),
                         itemBuilder: (context, index) {
                           final task = tasks[index];
-                          return Card(
-                            child: ListTile(
-                              contentPadding: const EdgeInsets.all(16),
-                              title: Text(task.title),
-                              subtitle: Padding(
-                                padding: const EdgeInsets.only(top: 6),
-                                child: Text(
-                                  [
-                                    task.status.replaceAll('_', ' '),
-                                    task.priority,
-                                    if ((task.assigneeName ?? '').isNotEmpty)
-                                      task.assigneeName!,
-                                  ].join(' • '),
-                                ),
-                              ),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  _StatusBadge(status: task.status),
-                                  PopupMenuButton<String>(
-                                    icon: const Icon(Icons.more_vert),
-                                    onSelected: (value) async {
-                                      if (value == '__delete__') {
-                                        await _confirmDeleteTask(task);
-                                      } else {
-                                        await _updateTaskStatus(task, value);
-                                      }
-                                    },
-                                    itemBuilder: (ctx) => [
-                                      for (final s in _taskStatuses)
-                                        PopupMenuItem<String>(
-                                          value: s,
-                                          enabled: s != task.status,
-                                          child: Text(_statusLabel(s)),
-                                        ),
-                                      const PopupMenuDivider(),
-                                      const PopupMenuItem<String>(
-                                        value: '__delete__',
-                                        child: Text('Delete'),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
+                          return _TaskCard(
+                            task: task,
+                            statusLabel: _statusLabel,
+                            onStatusChange: (s) => _updateTaskStatus(task, s),
+                            onDelete: () => _confirmDeleteTask(task),
                           );
                         },
                       );
@@ -284,6 +248,155 @@ class _TaskListPageState extends State<TaskListPage> {
           ),
         );
       },
+    );
+  }
+}
+
+class _TaskCard extends StatefulWidget {
+  const _TaskCard({
+    required this.task,
+    required this.statusLabel,
+    required this.onStatusChange,
+    required this.onDelete,
+  });
+
+  final TaskModel task;
+  final String Function(String) statusLabel;
+  final Future<void> Function(String) onStatusChange;
+  final Future<void> Function() onDelete;
+
+  @override
+  State<_TaskCard> createState() => _TaskCardState();
+}
+
+class _TaskCardState extends State<_TaskCard> {
+  List<AttachmentModel> _photos = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPhotos();
+  }
+
+  Future<void> _loadPhotos() async {
+    final files = await AttachmentService.instance.getByEntity('task', widget.task.id);
+    if (mounted) setState(() => _photos = files);
+  }
+
+  Future<void> _uploadPhoto() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf'],
+    );
+    if (result == null || result.files.isEmpty || result.files.first.path == null) return;
+    try {
+      final file = result.files.first;
+      final attachment = await AttachmentService.instance.upload(
+        file.path!, file.name, 'task', widget.task.id,
+      );
+      if (mounted) {
+        setState(() => _photos.add(attachment));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Photo uploaded')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to upload')),
+        );
+      }
+    }
+  }
+
+  Future<void> _viewPhoto(AttachmentModel a) async {
+    try {
+      final url = await AttachmentService.instance.getDownloadUrl(a.id);
+      if (url.isNotEmpty) {
+        await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      } else if (a.url.isNotEmpty) {
+        await launchUrl(Uri.parse(a.url), mode: LaunchMode.externalApplication);
+      }
+    } catch (_) {
+      if (a.url.isNotEmpty) {
+        await launchUrl(Uri.parse(a.url), mode: LaunchMode.externalApplication);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final task = widget.task;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(task.title, style: Theme.of(context).textTheme.titleSmall),
+                      const SizedBox(height: 4),
+                      Text(
+                        [
+                          task.status.replaceAll('_', ' '),
+                          task.priority,
+                          if ((task.assigneeName ?? '').isNotEmpty) task.assigneeName!,
+                        ].join(' • '),
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ),
+                _StatusBadge(status: task.status),
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert),
+                  onSelected: (value) async {
+                    if (value == '__delete__') {
+                      await widget.onDelete();
+                    } else if (value == '__photo__') {
+                      await _uploadPhoto();
+                    } else {
+                      await widget.onStatusChange(value);
+                    }
+                  },
+                  itemBuilder: (ctx) => [
+                    const PopupMenuItem(value: '__photo__', child: Text('Attach photo')),
+                    const PopupMenuDivider(),
+                    for (final s in _taskStatuses)
+                      PopupMenuItem<String>(
+                        value: s,
+                        enabled: s != task.status,
+                        child: Text(widget.statusLabel(s)),
+                      ),
+                    const PopupMenuDivider(),
+                    const PopupMenuItem(value: '__delete__', child: Text('Delete')),
+                  ],
+                ),
+              ],
+            ),
+            if (_photos.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: _photos.map((a) => ActionChip(
+                  avatar: Icon(
+                    a.mimeType?.startsWith('image/') == true ? Icons.image : Icons.description,
+                    size: 16,
+                  ),
+                  label: Text(a.filename, overflow: TextOverflow.ellipsis),
+                  onPressed: () => _viewPhoto(a),
+                )).toList(),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

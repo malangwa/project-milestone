@@ -1,11 +1,15 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../../data/models/attachment_model.dart';
 import '../../../data/models/expense_model.dart';
 import '../../../data/models/milestone_model.dart';
 import '../../../data/models/project_model.dart';
 import '../../../data/models/report_model.dart';
 import '../../../data/models/task_model.dart';
+import '../../../data/services/attachment_service.dart';
 import '../../../data/services/expense_service.dart';
 import '../../../data/services/milestone_service.dart';
 import '../../../data/services/project_service.dart';
@@ -323,9 +327,206 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
                             ),
                           ),
                 ),
+                const SizedBox(height: 16),
+
+                // Files
+                _FilesSection(projectId: widget.projectId),
               ],
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+class _FilesSection extends StatefulWidget {
+  const _FilesSection({required this.projectId});
+  final String projectId;
+
+  @override
+  State<_FilesSection> createState() => _FilesSectionState();
+}
+
+class _FilesSectionState extends State<_FilesSection> {
+  List<AttachmentModel> _files = [];
+  bool _loading = true;
+  bool _uploading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFiles();
+  }
+
+  Future<void> _loadFiles() async {
+    final files = await AttachmentService.instance.getByEntity(
+      'project',
+      widget.projectId,
+    );
+    if (mounted) setState(() { _files = files; _loading = false; });
+  }
+
+  Future<void> _pickAndUpload() async {
+    final result = await FilePicker.platform.pickFiles(allowMultiple: true);
+    if (result == null || result.files.isEmpty) return;
+
+    setState(() => _uploading = true);
+    try {
+      for (final file in result.files) {
+        if (file.path == null) continue;
+        final attachment = await AttachmentService.instance.upload(
+          file.path!,
+          file.name,
+          'project',
+          widget.projectId,
+        );
+        if (mounted) setState(() => _files.add(attachment));
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Files uploaded successfully')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Upload failed: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploading = false);
+    }
+  }
+
+  Future<void> _download(AttachmentModel attachment) async {
+    try {
+      final url = await AttachmentService.instance.getDownloadUrl(attachment.id);
+      if (url.isNotEmpty) {
+        await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      } else if (attachment.url.isNotEmpty) {
+        await launchUrl(Uri.parse(attachment.url), mode: LaunchMode.externalApplication);
+      }
+    } catch (_) {
+      if (attachment.url.isNotEmpty) {
+        await launchUrl(Uri.parse(attachment.url), mode: LaunchMode.externalApplication);
+      }
+    }
+  }
+
+  Future<void> _delete(AttachmentModel attachment) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete file?'),
+        content: Text('Are you sure you want to delete "${attachment.filename}"?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await AttachmentService.instance.delete(attachment.id);
+      if (mounted) {
+        setState(() => _files.removeWhere((f) => f.id == attachment.id));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('File deleted')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to delete: $e')),
+        );
+      }
+    }
+  }
+
+  IconData _iconForMime(String? mime) {
+    if (mime == null) return Icons.insert_drive_file;
+    if (mime.startsWith('image/')) return Icons.image;
+    if (mime.contains('pdf')) return Icons.picture_as_pdf;
+    if (mime.contains('spreadsheet') || mime.contains('excel')) return Icons.table_chart;
+    if (mime.contains('word') || mime.contains('document')) return Icons.description;
+    return Icons.insert_drive_file;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Files', style: Theme.of(context).textTheme.titleMedium),
+                _uploading
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : IconButton(
+                        icon: const Icon(Icons.upload_file),
+                        tooltip: 'Upload files',
+                        onPressed: _pickAndUpload,
+                      ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (_loading)
+              const Center(child: CircularProgressIndicator(strokeWidth: 2))
+            else if (_files.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Center(
+                  child: Text(
+                    'No files yet. Tap the upload button to add files.',
+                    style: TextStyle(color: Color(0xFF9CA3AF)),
+                  ),
+                ),
+              )
+            else
+              ..._files.map((file) => ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(
+                      _iconForMime(file.mimeType),
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    title: Text(
+                      file.filename,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: Text(
+                      [
+                        if (file.sizeLabel.isNotEmpty) file.sizeLabel,
+                        if (file.createdAt != null)
+                          DateFormat.yMd().format(DateTime.parse(file.createdAt!)),
+                      ].join(' • '),
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    trailing: PopupMenuButton<String>(
+                      onSelected: (value) {
+                        if (value == 'download') _download(file);
+                        if (value == 'delete') _delete(file);
+                      },
+                      itemBuilder: (_) => [
+                        const PopupMenuItem(value: 'download', child: Text('Download')),
+                        const PopupMenuItem(value: 'delete', child: Text('Delete', style: TextStyle(color: Colors.red))),
+                      ],
+                    ),
+                  )),
+          ],
         ),
       ),
     );

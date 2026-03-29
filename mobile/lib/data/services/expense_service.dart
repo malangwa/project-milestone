@@ -31,8 +31,14 @@ class ExpenseService {
     await _dio.patch<void>('/expenses/$id/reject');
   }
 
-  Future<void> create(Map<String, dynamic> data) async {
-    await _dio.post<dynamic>('/expenses', data: data);
+  Future<ExpenseModel?> create(Map<String, dynamic> data) async {
+    final response = await _dio.post<dynamic>('/expenses', data: data);
+    try {
+      final payload = _unwrapMap(response.data);
+      return ExpenseModel.fromJson(payload);
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<void> delete(String id) async {

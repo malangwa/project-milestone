@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { attachmentsApi } from '../../api/attachments.api';
 import { expensesApi } from '../../api/expenses.api';
 import { projectsApi } from '../../api/projects.api';
 import { materialRequestsApi } from '../../api/material-requests.api';
@@ -23,7 +24,9 @@ const ExpenseList = () => {
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ title: '', amount: '', category: 'other', date: '', notes: '' });
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+  const [expenseAttachments, setExpenseAttachments] = useState<Record<string, any[]>>({});
 
   useEffect(() => {
     projectsApi.getAll().then((res) => {
@@ -59,12 +62,48 @@ const ExpenseList = () => {
     setSaving(true);
     try {
       const clean = Object.fromEntries(Object.entries(form).filter(([, v]) => v !== ''));
-      await expensesApi.create({ ...clean, amount: Number(form.amount), projectId: selectedProject });
+      const res = await expensesApi.create({ ...clean, amount: Number(form.amount), projectId: selectedProject });
+      const created = res.data?.data || res.data;
+      if (receiptFile && created?.id) {
+        await attachmentsApi.upload(receiptFile, 'expense', created.id);
+      }
       setShowModal(false);
       setForm({ title: '', amount: '', category: 'other', date: '', notes: '' });
+      setReceiptFile(null);
       reload();
     } finally { setSaving(false); }
   };
+
+  const loadExpenseAttachments = async (expenseId: string) => {
+    try {
+      const res = await attachmentsApi.getByEntity('expense', expenseId);
+      const list = res.data?.data || res.data || [];
+      setExpenseAttachments((prev) => ({ ...prev, [expenseId]: list }));
+    } catch {}
+  };
+
+  const handleUploadReceipt = async (expenseId: string, file: File) => {
+    try {
+      await attachmentsApi.upload(file, 'expense', expenseId);
+      loadExpenseAttachments(expenseId);
+    } catch {}
+  };
+
+  const handleViewReceipt = async (attachment: any) => {
+    try {
+      const res = await attachmentsApi.getDownloadUrl(attachment.id);
+      const url = res.data?.url || res.data?.data?.url;
+      if (url) window.open(url, '_blank');
+    } catch {
+      if (attachment.url) window.open(attachment.url, '_blank');
+    }
+  };
+
+  useEffect(() => {
+    expenses.forEach((e) => {
+      if (!expenseAttachments[e.id]) loadExpenseAttachments(e.id);
+    });
+  }, [expenses]);
 
   const handleApprove = async (id: string) => { await expensesApi.approve(id); reload(); };
   const handleReject = async (id: string) => { await expensesApi.reject(id); reload(); };
@@ -136,26 +175,55 @@ const ExpenseList = () => {
         <div className="text-center py-16 text-gray-400">No expenses for this project.</div>
       ) : (
         <div className="space-y-2">
-          {expenses.map((e) => (
-            <div key={e.id} className="bg-white border border-gray-200 rounded-xl px-5 py-4 flex items-center gap-4 group">
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-gray-900">{e.title}</p>
-                <p className="text-xs text-gray-500 mt-0.5 capitalize">{e.category}{e.date ? ` · ${new Date(e.date).toLocaleDateString()}` : ''}</p>
+          {expenses.map((e) => {
+            const receipts = expenseAttachments[e.id] || [];
+            return (
+            <div key={e.id} className="bg-white border border-gray-200 rounded-xl px-5 py-4 group">
+              <div className="flex items-center gap-4">
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-gray-900">{e.title}</p>
+                  <p className="text-xs text-gray-500 mt-0.5 capitalize">{e.category}{e.date ? ` · ${new Date(e.date).toLocaleDateString()}` : ''}</p>
+                </div>
+                <p className="font-semibold text-gray-900">${Number(e.amount).toLocaleString()}</p>
+                <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${statusColor[e.status]}`}>{e.status}</span>
+                {canApprove && e.status === 'pending' && (
+                  <div className="flex gap-2">
+                    <button onClick={() => handleApprove(e.id)}
+                      className="text-xs px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700">Approve</button>
+                    <button onClick={() => handleReject(e.id)}
+                      className="text-xs px-3 py-1.5 bg-red-100 text-red-700 rounded-lg hover:bg-red-200">Reject</button>
+                  </div>
+                )}
+                <label className="text-xs text-blue-600 hover:text-blue-700 cursor-pointer px-2 py-1 rounded hover:bg-blue-50 flex items-center gap-1">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+                  Receipt
+                  <input type="file" accept="image/*,.pdf" className="hidden" onChange={(ev) => {
+                    const f = ev.target.files?.[0];
+                    if (f) handleUploadReceipt(e.id, f);
+                    ev.target.value = '';
+                  }} />
+                </label>
+                <button onClick={() => handleDelete(e.id)}
+                  className="text-xs text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">Delete</button>
               </div>
-              <p className="font-semibold text-gray-900">${Number(e.amount).toLocaleString()}</p>
-              <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${statusColor[e.status]}`}>{e.status}</span>
-              {canApprove && e.status === 'pending' && (
-                <div className="flex gap-2">
-                  <button onClick={() => handleApprove(e.id)}
-                    className="text-xs px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700">Approve</button>
-                  <button onClick={() => handleReject(e.id)}
-                    className="text-xs px-3 py-1.5 bg-red-100 text-red-700 rounded-lg hover:bg-red-200">Reject</button>
+              {receipts.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2 pl-0">
+                  {receipts.map((a: any) => (
+                    <button key={a.id} onClick={() => handleViewReceipt(a)}
+                      className="inline-flex items-center gap-1.5 text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors">
+                      {a.mimeType?.startsWith('image/') ? (
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                      ) : (
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                      )}
+                      {a.filename}
+                    </button>
+                  ))}
                 </div>
               )}
-              <button onClick={() => handleDelete(e.id)}
-                className="text-xs text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">Delete</button>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -195,6 +263,17 @@ const ExpenseList = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
                 <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })}
                   rows={2} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Receipt / Photo</label>
+                <label className="flex items-center gap-2 px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition-colors">
+                  <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                  <span className="text-sm text-gray-600">{receiptFile ? receiptFile.name : 'Attach receipt or photo...'}</span>
+                  <input type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => setReceiptFile(e.target.files?.[0] || null)} />
+                </label>
+                {receiptFile && (
+                  <button type="button" onClick={() => setReceiptFile(null)} className="text-xs text-red-500 mt-1 hover:text-red-700">Remove</button>
+                )}
               </div>
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowModal(false)}

@@ -1,8 +1,12 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../../data/models/attachment_model.dart';
 import '../../../data/models/expense_model.dart';
 import '../../../data/models/project_model.dart';
+import '../../../data/services/attachment_service.dart';
 import '../../../data/services/expense_service.dart';
 import '../../../data/services/project_service.dart';
 import '../../../data/services/session_controller.dart';
@@ -138,6 +142,7 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
     final formKey = GlobalKey<FormState>();
     var category = 'labor';
     var selectedDate = DateTime.now();
+    PlatformFile? receiptFile;
 
     showModalBottomSheet<void>(
       context: pageContext,
@@ -260,7 +265,31 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
                         ),
                         maxLines: 3,
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        onPressed: () async {
+                          final result = await FilePicker.platform.pickFiles(
+                            type: FileType.custom,
+                            allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf'],
+                          );
+                          if (result != null && result.files.isNotEmpty) {
+                            setModalState(() => receiptFile = result.files.first);
+                          }
+                        },
+                        icon: const Icon(Icons.camera_alt_outlined),
+                        label: Text(receiptFile != null
+                            ? receiptFile!.name
+                            : 'Attach receipt / photo'),
+                      ),
+                      if (receiptFile != null)
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: () => setModalState(() => receiptFile = null),
+                            child: const Text('Remove', style: TextStyle(color: Colors.red)),
+                          ),
+                        ),
+                      const SizedBox(height: 12),
                       FilledButton(
                         onPressed: () async {
                           if (formKey.currentState?.validate() != true) {
@@ -281,7 +310,17 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
                             body['notes'] = notes;
                           }
                           try {
-                            await ExpenseService.instance.create(body);
+                            final created = await ExpenseService.instance.create(body);
+                            if (receiptFile?.path != null && created != null) {
+                              try {
+                                await AttachmentService.instance.upload(
+                                  receiptFile!.path!,
+                                  receiptFile!.name,
+                                  'expense',
+                                  created.id,
+                                );
+                              } catch (_) {}
+                            }
                             if (sheetContext.mounted) {
                               Navigator.pop(sheetContext);
                             }
@@ -468,75 +507,13 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
                         ),
                         const SizedBox(height: 8),
                         ...expenses.map(
-                          (expense) => Card(
-                            child: ListTile(
-                              contentPadding: const EdgeInsets.all(16),
-                              title: Text(
-                                (expense.title ?? '').trim().isNotEmpty
-                                    ? expense.title!.trim()
-                                    : expense.category,
-                              ),
-                              subtitle: Padding(
-                                padding: const EdgeInsets.only(top: 6),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    if ((expense.description ?? '').isNotEmpty)
-                                      Text(expense.description!),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      [
-                                        currency.format(expense.amount),
-                                        if ((expense.submittedByName ?? '')
-                                            .isNotEmpty)
-                                          'by ${expense.submittedByName}',
-                                      ].join(' • '),
-                                    ),
-                                    if (canApprove &&
-                                        expense.status == 'pending') ...[
-                                      const SizedBox(height: 8),
-                                      Row(
-                                        children: [
-                                          FilledButton.tonal(
-                                            onPressed: () => _handleAction(
-                                                expense.id, 'approve'),
-                                            child: const Text('Approve'),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          OutlinedButton(
-                                            onPressed: () => _handleAction(
-                                                expense.id, 'reject'),
-                                            child: const Text('Reject'),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  _ExpenseStatusChip(
-                                    status: expense.status,
-                                  ),
-                                  PopupMenuButton<String>(
-                                    icon: const Icon(Icons.more_vert),
-                                    onSelected: (value) {
-                                      if (value == 'delete') {
-                                        _confirmDeleteExpense(expense);
-                                      }
-                                    },
-                                    itemBuilder: (ctx) => [
-                                      const PopupMenuItem<String>(
-                                        value: 'delete',
-                                        child: Text('Delete'),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
+                          (expense) => _ExpenseCard(
+                            expense: expense,
+                            currency: currency,
+                            canApprove: canApprove,
+                            onApprove: () => _handleAction(expense.id, 'approve'),
+                            onReject: () => _handleAction(expense.id, 'reject'),
+                            onDelete: () => _confirmDeleteExpense(expense),
                           ),
                         ),
                       ],
@@ -549,6 +526,163 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
           ),
         );
       },
+    );
+  }
+}
+
+class _ExpenseCard extends StatefulWidget {
+  const _ExpenseCard({
+    required this.expense,
+    required this.currency,
+    required this.canApprove,
+    required this.onApprove,
+    required this.onReject,
+    required this.onDelete,
+  });
+
+  final ExpenseModel expense;
+  final NumberFormat currency;
+  final bool canApprove;
+  final VoidCallback onApprove;
+  final VoidCallback onReject;
+  final VoidCallback onDelete;
+
+  @override
+  State<_ExpenseCard> createState() => _ExpenseCardState();
+}
+
+class _ExpenseCardState extends State<_ExpenseCard> {
+  List<AttachmentModel> _receipts = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadReceipts();
+  }
+
+  Future<void> _loadReceipts() async {
+    final files = await AttachmentService.instance.getByEntity(
+      'expense',
+      widget.expense.id,
+    );
+    if (mounted) setState(() => _receipts = files);
+  }
+
+  Future<void> _uploadReceipt() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf'],
+    );
+    if (result == null || result.files.isEmpty || result.files.first.path == null) return;
+    try {
+      final file = result.files.first;
+      final attachment = await AttachmentService.instance.upload(
+        file.path!, file.name, 'expense', widget.expense.id,
+      );
+      if (mounted) {
+        setState(() => _receipts.add(attachment));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Receipt uploaded')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to upload receipt')),
+        );
+      }
+    }
+  }
+
+  Future<void> _viewReceipt(AttachmentModel a) async {
+    try {
+      final url = await AttachmentService.instance.getDownloadUrl(a.id);
+      if (url.isNotEmpty) {
+        await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      } else if (a.url.isNotEmpty) {
+        await launchUrl(Uri.parse(a.url), mode: LaunchMode.externalApplication);
+      }
+    } catch (_) {
+      if (a.url.isNotEmpty) {
+        await launchUrl(Uri.parse(a.url), mode: LaunchMode.externalApplication);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final e = widget.expense;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        (e.title ?? '').trim().isNotEmpty ? e.title!.trim() : e.category,
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      const SizedBox(height: 4),
+                      if ((e.description ?? '').isNotEmpty)
+                        Text(e.description!, style: const TextStyle(fontSize: 13)),
+                      Text(
+                        [
+                          widget.currency.format(e.amount),
+                          if ((e.submittedByName ?? '').isNotEmpty) 'by ${e.submittedByName}',
+                        ].join(' • '),
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ),
+                _ExpenseStatusChip(status: e.status),
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert),
+                  onSelected: (value) {
+                    if (value == 'receipt') _uploadReceipt();
+                    if (value == 'delete') widget.onDelete();
+                  },
+                  itemBuilder: (ctx) => [
+                    const PopupMenuItem(value: 'receipt', child: Text('Attach receipt')),
+                    const PopupMenuItem(value: 'delete', child: Text('Delete')),
+                  ],
+                ),
+              ],
+            ),
+            if (widget.canApprove && e.status == 'pending') ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  FilledButton.tonal(onPressed: widget.onApprove, child: const Text('Approve')),
+                  const SizedBox(width: 8),
+                  OutlinedButton(onPressed: widget.onReject, child: const Text('Reject')),
+                ],
+              ),
+            ],
+            if (_receipts.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: _receipts.map((a) => ActionChip(
+                  avatar: Icon(
+                    a.mimeType?.startsWith('image/') == true ? Icons.image : Icons.description,
+                    size: 16,
+                  ),
+                  label: Text(a.filename, overflow: TextOverflow.ellipsis),
+                  onPressed: () => _viewReceipt(a),
+                )).toList(),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
