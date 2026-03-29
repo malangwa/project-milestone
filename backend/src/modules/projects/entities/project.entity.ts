@@ -58,6 +58,9 @@ export class Project {
   @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
   budget: number;
 
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  givenCash: number;
+
   @ManyToOne(() => User, { eager: false })
   @JoinColumn({ name: 'owner_id' })
   owner: User;

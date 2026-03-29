@@ -32,4 +32,5 @@ export class CreateProjectDto {
   @IsOptional()
   endDate?: string;
   @ApiProperty({ required: false }) @IsNumber() @IsOptional() budget?: number;
+  @ApiProperty({ required: false }) @IsNumber() @IsOptional() givenCash?: number;
 }

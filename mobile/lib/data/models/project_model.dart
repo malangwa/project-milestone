@@ -5,6 +5,7 @@ class ProjectModel {
     required this.status,
     required this.industry,
     required this.budget,
+    required this.givenCash,
     this.description,
     this.location,
     this.startDate,
@@ -18,6 +19,7 @@ class ProjectModel {
   final String status;
   final String industry;
   final double budget;
+  final double givenCash;
   final String? startDate;
   final String? endDate;
 
@@ -30,6 +32,7 @@ class ProjectModel {
       status: (json['status'] ?? 'planning').toString(),
       industry: (json['industry'] ?? 'other').toString(),
       budget: double.tryParse((json['budget'] ?? 0).toString()) ?? 0,
+      givenCash: double.tryParse((json['givenCash'] ?? 0).toString()) ?? 0,
       startDate: json['startDate']?.toString(),
       endDate: json['endDate']?.toString(),
     );

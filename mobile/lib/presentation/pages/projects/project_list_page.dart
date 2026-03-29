@@ -268,6 +268,7 @@ class _CreateProjectFormState extends State<_CreateProjectForm> {
   final _descriptionController = TextEditingController();
   final _locationController = TextEditingController();
   final _budgetController = TextEditingController();
+  final _givenCashController = TextEditingController();
   String _industry = 'other';
   String _status = 'planning';
   DateTime? _startDate;
@@ -295,6 +296,7 @@ class _CreateProjectFormState extends State<_CreateProjectForm> {
     _descriptionController.dispose();
     _locationController.dispose();
     _budgetController.dispose();
+    _givenCashController.dispose();
     super.dispose();
   }
 
@@ -351,6 +353,7 @@ class _CreateProjectFormState extends State<_CreateProjectForm> {
         'industry': _industry,
         'status': _status,
         'budget': double.tryParse(_budgetController.text.trim()) ?? 0,
+        'givenCash': double.tryParse(_givenCashController.text.trim()) ?? 0,
         if (_startDate != null)
           'startDate': DateFormat('yyyy-MM-dd').format(_startDate!),
         if (_endDate != null)
@@ -372,6 +375,8 @@ class _CreateProjectFormState extends State<_CreateProjectForm> {
   @override
   Widget build(BuildContext context) {
     final budget = double.tryParse(_budgetController.text.trim()) ?? 0;
+    final givenCash = double.tryParse(_givenCashController.text.trim()) ?? 0;
+    final remaining = (budget - givenCash) < 0 ? 0.0 : (budget - givenCash);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
@@ -476,19 +481,31 @@ class _CreateProjectFormState extends State<_CreateProjectForm> {
               onChanged: (_) => setState(() {}),
             ),
             const SizedBox(height: 12),
+            TextFormField(
+              controller: _givenCashController,
+              decoration: const InputDecoration(
+                labelText: 'Given cash',
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              onChanged: (_) => setState(() {}),
+            ),
+            const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
                   child: _ProjectFigureCard(
                     label: 'Given',
-                    value: NumberFormat.currency(symbol: '\$').format(0),
+                    value: NumberFormat.currency(symbol: '\$').format(givenCash),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: _ProjectFigureCard(
                     label: 'Remaining',
-                    value: NumberFormat.currency(symbol: '\$').format(budget),
+                    value: NumberFormat.currency(symbol: '\$').format(remaining),
                   ),
                 ),
               ],

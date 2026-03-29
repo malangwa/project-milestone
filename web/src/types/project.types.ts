@@ -12,7 +12,7 @@ export type Project = {
   id: string; name: string; description: string;
   location?: string | null;
   status: ProjectStatus; industry: Industry;
-  startDate: string; endDate: string; budget: number;
+  startDate: string; endDate: string; budget: number; givenCash: number;
   ownerId: string; createdAt: string; updatedAt: string;
 };
 

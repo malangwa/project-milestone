@@ -18,7 +18,7 @@ const ProjectList = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({ name: '', description: '', location: '', industry: 'other', status: 'planning', budget: '', startDate: '', endDate: '' });
+  const [form, setForm] = useState({ name: '', description: '', location: '', industry: 'other', status: 'planning', budget: '', givenCash: '', startDate: '', endDate: '' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -56,12 +56,13 @@ const ProjectList = () => {
       await projectsApi.create({
         ...form,
         budget: Number(form.budget) || 0,
+        givenCash: Number(form.givenCash) || 0,
         location: form.location || undefined,
         startDate: form.startDate || undefined,
         endDate: form.endDate || undefined,
       });
       setShowModal(false);
-      setForm({ name: '', description: '', location: '', industry: 'other', status: 'planning', budget: '', startDate: '', endDate: '' });
+      setForm({ name: '', description: '', location: '', industry: 'other', status: 'planning', budget: '', givenCash: '', startDate: '', endDate: '' });
       load();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to create project');
@@ -71,6 +72,8 @@ const ProjectList = () => {
   };
 
   const plannedBudget = Number(form.budget) || 0;
+  const plannedGivenCash = Number(form.givenCash) || 0;
+  const plannedRemaining = Math.max(0, plannedBudget - plannedGivenCash);
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -186,14 +189,19 @@ const ProjectList = () => {
                 <input type="number" min="0" value={form.budget} onChange={(e) => setForm({ ...form, budget: e.target.value })}
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="0" />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Given Cash ($)</label>
+                <input type="number" min="0" value={form.givenCash} onChange={(e) => setForm({ ...form, givenCash: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="0" />
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-lg bg-gray-50 px-4 py-3 border border-gray-200">
                   <p className="text-xs text-gray-500">Given</p>
-                  <p className="font-semibold text-gray-900 mt-1">$0</p>
+                  <p className="font-semibold text-gray-900 mt-1">${plannedGivenCash.toLocaleString()}</p>
                 </div>
                 <div className="rounded-lg bg-gray-50 px-4 py-3 border border-gray-200">
                   <p className="text-xs text-gray-500">Remaining</p>
-                  <p className="font-semibold text-gray-900 mt-1">${plannedBudget.toLocaleString()}</p>
+                  <p className="font-semibold text-gray-900 mt-1">${plannedRemaining.toLocaleString()}</p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">

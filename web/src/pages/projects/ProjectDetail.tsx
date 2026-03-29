@@ -75,7 +75,7 @@ const ProjectDetail = () => {
   const [attachments, setAttachments] = useState<any[]>([]);
   const [uploading, setUploading] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
-  const [editForm, setEditForm] = useState({ name: '', description: '', location: '', status: '', industry: '', budget: '', startDate: '', endDate: '' });
+  const [editForm, setEditForm] = useState({ name: '', description: '', location: '', status: '', industry: '', budget: '', givenCash: '', startDate: '', endDate: '' });
   const [editSaving, setEditSaving] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [createForm, setCreateForm] = useState<Record<string, string>>({});
@@ -255,6 +255,7 @@ const ProjectDetail = () => {
       status: project.status,
       industry: project.industry,
       budget: project.budget ? String(project.budget) : '',
+      givenCash: project.givenCash ? String(project.givenCash) : '',
       startDate: project.startDate ? project.startDate.slice(0, 10) : '',
       endDate: project.endDate ? project.endDate.slice(0, 10) : '',
     });
@@ -269,6 +270,7 @@ const ProjectDetail = () => {
       const res = await projectsApi.update(id, {
         ...editForm,
         budget: editForm.budget ? Number(editForm.budget) : undefined,
+        givenCash: editForm.givenCash ? Number(editForm.givenCash) : 0,
         location: editForm.location.trim() || undefined,
         startDate: editForm.startDate || undefined,
         endDate: editForm.endDate || undefined,
@@ -308,17 +310,18 @@ const ProjectDetail = () => {
   };
 
   const projectBudget = Number(project?.budget || 0);
-  const givenSoFar = projectExpenses
+  const spentSoFar = projectExpenses
     .filter((expense) => expense.status === 'approved')
     .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+  const givenCash = Number(project?.givenCash || 0);
   const approvedMaterialCommitment = projectMaterialRequests
     .filter((request) => request.status === 'approved')
     .reduce((sum, request) => sum + Number(request.requestedAmount || 0), 0);
-  const totalCommitted = givenSoFar + approvedMaterialCommitment;
-  const remainingOwed = Math.max(0, projectBudget - totalCommitted);
-  const overBudget = Math.max(0, totalCommitted - projectBudget);
+  const remainingOwed = Math.max(0, projectBudget - givenCash);
+  const overBudget = Math.max(0, givenCash - projectBudget);
   const editedBudget = Number(editForm.budget || 0);
-  const editedRemaining = Math.max(0, editedBudget - totalCommitted);
+  const editedGivenCash = Number(editForm.givenCash || 0);
+  const editedRemaining = Math.max(0, editedBudget - editedGivenCash);
 
   const money = (value: number | string | null | undefined) => `$${Number(value ?? 0).toLocaleString()}`;
 
@@ -497,7 +500,8 @@ const ProjectDetail = () => {
             <span className="capitalize">{project.industry}</span>
             {project.location && <span>{project.location}</span>}
             {project.budget > 0 && <span>Budget: {money(projectBudget)}</span>}
-            <span>Given: {money(givenSoFar)}</span>
+            <span>Given Cash: {money(givenCash)}</span>
+            <span>Spent: {money(spentSoFar)}</span>
             <span>Materials: {money(approvedMaterialCommitment)}</span>
             <span>Owed: {money(remainingOwed)}</span>
             {project.startDate && <span>Start: {new Date(project.startDate).toLocaleDateString()}</span>}
@@ -541,11 +545,15 @@ const ProjectDetail = () => {
             </div>
             <div className="bg-white border border-gray-200 rounded-xl p-4">
               <p className="text-xs text-gray-500">Given (Expenses)</p>
-              <p className="text-xl font-bold text-green-600 mt-1">{money(givenSoFar)}</p>
+              <p className="text-xl font-bold text-green-600 mt-1">{money(givenCash)}</p>
+            </div>
+            <div className="bg-white border border-gray-200 rounded-xl p-4">
+              <p className="text-xs text-gray-500">Spent</p>
+              <p className="text-xl font-bold text-blue-600 mt-1">{money(spentSoFar)}</p>
             </div>
             <div className="bg-white border border-gray-200 rounded-xl p-4">
               <p className="text-xs text-gray-500">Materials Approved</p>
-              <p className="text-xl font-bold text-blue-600 mt-1">{money(approvedMaterialCommitment)}</p>
+              <p className="text-xl font-bold text-indigo-600 mt-1">{money(approvedMaterialCommitment)}</p>
             </div>
             <div className="bg-white border border-gray-200 rounded-xl p-4">
               <p className="text-xs text-gray-500">Remaining</p>
@@ -564,11 +572,11 @@ const ProjectDetail = () => {
             <div className="bg-white border border-gray-200 rounded-xl p-4">
               <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
                 <span>Budget utilization</span>
-                <span>{Math.min(100, Math.round((totalCommitted / projectBudget) * 100))}%</span>
+                <span>{Math.min(100, Math.round((givenCash / projectBudget) * 100))}%</span>
               </div>
               <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
-                <div className={`h-3 rounded-full transition-all ${totalCommitted > projectBudget ? 'bg-red-500' : totalCommitted > projectBudget * 0.8 ? 'bg-orange-500' : 'bg-green-500'}`}
-                  style={{ width: `${Math.min(100, (totalCommitted / projectBudget) * 100)}%` }} />
+                <div className={`h-3 rounded-full transition-all ${givenCash > projectBudget ? 'bg-red-500' : givenCash > projectBudget * 0.8 ? 'bg-orange-500' : 'bg-green-500'}`}
+                  style={{ width: `${Math.min(100, (givenCash / projectBudget) * 100)}%` }} />
               </div>
             </div>
           )}
@@ -1300,13 +1308,19 @@ const ProjectDetail = () => {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-lg bg-gray-50 px-4 py-3 border border-gray-200">
-                  <p className="text-xs text-gray-500">Given</p>
-                  <p className="font-semibold text-gray-900 mt-1">{money(givenSoFar)}</p>
+                  <p className="text-xs text-gray-500">Given Cash</p>
+                  <p className="font-semibold text-gray-900 mt-1">{money(editedGivenCash)}</p>
                 </div>
                 <div className="rounded-lg bg-gray-50 px-4 py-3 border border-gray-200">
                   <p className="text-xs text-gray-500">Remaining</p>
                   <p className="font-semibold text-gray-900 mt-1">{money(editedRemaining)}</p>
                 </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Given Cash ($)</label>
+                <input type="number" min="0" value={editForm.givenCash}
+                  onChange={(e) => setEditForm({ ...editForm, givenCash: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>

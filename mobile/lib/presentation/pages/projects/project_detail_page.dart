@@ -74,7 +74,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
     );
   }
 
-  void _showEditProjectSheet(ProjectModel project, double givenAmount) {
+  void _showEditProjectSheet(ProjectModel project) {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -86,7 +86,6 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
           ),
           child: _EditProjectForm(
             project: project,
-            givenAmount: givenAmount,
             onSubmitted: () {
               if (!mounted) return;
               setState(() => _future = _load());
@@ -115,12 +114,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
               return IconButton(
                 icon: const Icon(Icons.edit_outlined),
                 tooltip: 'Edit project',
-                onPressed: () => _showEditProjectSheet(
-                  snap.data!.project,
-                  snap.data!.expenses
-                      .where((expense) => expense.status == 'approved')
-                      .fold<double>(0, (sum, expense) => sum + expense.amount),
-                ),
+                onPressed: () => _showEditProjectSheet(snap.data!.project),
               );
             },
           ),
@@ -165,8 +159,9 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
             final completedMilestones =
                 data.milestones.where((m) => m.status == 'completed').length;
             final budget = data.project.budget;
-            final remaining = budget > 0 ? budget - approvedExpenses : 0.0;
-            final budgetPct = budget > 0 ? (approvedExpenses / budget * 100).clamp(0, 100) : 0.0;
+            final givenCash = data.project.givenCash;
+            final remaining = budget > 0 ? (budget - givenCash).clamp(0, double.infinity) : 0.0;
+            final budgetPct = budget > 0 ? (givenCash / budget * 100).clamp(0, 100) : 0.0;
 
             return ListView(
               padding: const EdgeInsets.all(16),
@@ -205,11 +200,15 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
                             ),
                             _InfoChip(
                               label: 'Given',
-                              value: currency.format(approvedExpenses),
+                              value: currency.format(givenCash),
                             ),
                             _InfoChip(
                               label: 'Remaining',
                               value: currency.format(remaining),
+                            ),
+                            _InfoChip(
+                              label: 'Spent',
+                              value: currency.format(approvedExpenses),
                             ),
                             _InfoChip(
                               label: 'Tasks',
@@ -234,9 +233,9 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
                               value: budgetPct / 100,
                               minHeight: 8,
                               backgroundColor: const Color(0xFFE5E7EB),
-                              color: approvedExpenses > budget
+                              color: givenCash > budget
                                   ? Colors.red
-                                  : approvedExpenses > budget * 0.8
+                                  : givenCash > budget * 0.8
                                       ? Colors.orange
                                       : Colors.green,
                             ),
@@ -838,12 +837,10 @@ class _ProgressUpdatesSectionState extends State<_ProgressUpdatesSection> {
 class _EditProjectForm extends StatefulWidget {
   const _EditProjectForm({
     required this.project,
-    required this.givenAmount,
     required this.onSubmitted,
   });
 
   final ProjectModel project;
-  final double givenAmount;
   final VoidCallback onSubmitted;
 
   @override
@@ -856,6 +853,7 @@ class _EditProjectFormState extends State<_EditProjectForm> {
   late final TextEditingController _descriptionController;
   late final TextEditingController _locationController;
   late final TextEditingController _budgetController;
+  late final TextEditingController _givenCashController;
   late String _industry;
   late String _status;
   DateTime? _startDate;
@@ -899,6 +897,9 @@ class _EditProjectFormState extends State<_EditProjectForm> {
     _budgetController = TextEditingController(
       text: p.budget == 0 ? '' : p.budget.toString(),
     );
+    _givenCashController = TextEditingController(
+      text: p.givenCash == 0 ? '' : p.givenCash.toString(),
+    );
     _industry =
         _industryValues.contains(p.industry) ? p.industry : 'other';
     _status = _statusValues.contains(p.status) ? p.status : 'planning';
@@ -912,6 +913,7 @@ class _EditProjectFormState extends State<_EditProjectForm> {
     _descriptionController.dispose();
     _locationController.dispose();
     _budgetController.dispose();
+    _givenCashController.dispose();
     super.dispose();
   }
 
@@ -968,6 +970,7 @@ class _EditProjectFormState extends State<_EditProjectForm> {
         'industry': _industry,
         'status': _status,
         'budget': double.tryParse(_budgetController.text.trim()) ?? 0,
+        'givenCash': double.tryParse(_givenCashController.text.trim()) ?? 0,
         if (_startDate != null)
           'startDate': DateFormat('yyyy-MM-dd').format(_startDate!),
         if (_endDate != null)
@@ -990,7 +993,8 @@ class _EditProjectFormState extends State<_EditProjectForm> {
   @override
   Widget build(BuildContext context) {
     final budget = double.tryParse(_budgetController.text.trim()) ?? 0;
-    final remaining = budget - widget.givenAmount;
+    final givenCash = double.tryParse(_givenCashController.text.trim()) ?? 0;
+    final remaining = (budget - givenCash) < 0 ? 0.0 : (budget - givenCash);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
@@ -1096,13 +1100,22 @@ class _EditProjectFormState extends State<_EditProjectForm> {
               onChanged: (_) => setState(() {}),
             ),
             const SizedBox(height: 12),
+            TextFormField(
+              controller: _givenCashController,
+              decoration: const InputDecoration(
+                labelText: 'Given cash',
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              onChanged: (_) => setState(() {}),
+            ),
+            const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
                   child: _InfoChip(
                     label: 'Given',
-                    value: NumberFormat.currency(symbol: '\$')
-                        .format(widget.givenAmount),
+                    value: NumberFormat.currency(symbol: '\$').format(givenCash),
                   ),
                 ),
                 const SizedBox(width: 8),
