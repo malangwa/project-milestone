@@ -116,6 +116,34 @@ class _HomeShellState extends State<HomeShell> {
     return Scaffold(
       appBar: AppBar(
         title: Text(destinations[_currentIndex.clamp(0, destinations.length - 1)].label),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(52),
+          child: SizedBox(
+            height: 52,
+            child: ListView.separated(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+              scrollDirection: Axis.horizontal,
+              itemBuilder: (context, index) {
+                final item = destinations[index];
+                final selected = _currentIndex == index;
+                return ChoiceChip(
+                  label: Text(item.label),
+                  selected: selected,
+                  avatar: Icon(
+                    selected ? item.selectedIcon : item.icon,
+                    size: 18,
+                  ),
+                  onSelected: (_) {
+                    _cachedPages.remove(index);
+                    setState(() => _currentIndex = index);
+                  },
+                );
+              },
+              separatorBuilder: (context, index) => const SizedBox(width: 8),
+              itemCount: destinations.length,
+            ),
+          ),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.notifications_outlined),
