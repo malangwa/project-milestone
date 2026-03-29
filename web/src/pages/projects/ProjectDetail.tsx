@@ -12,6 +12,7 @@ import { ProcurementPanel } from '../../components/projects/ProcurementPanel';
 import type { MaterialRequest, Project, ProjectMember } from '../../types/project.types';
 import type { StockItem } from '../../types/procurement.types';
 import { useAuthStore } from '../../store/auth.store';
+import { attachmentsApi } from '../../api/attachments.api';
 import api from '../../api/axios';
 
 const statusColor: Record<string, string> = {
@@ -22,7 +23,7 @@ const statusColor: Record<string, string> = {
   cancelled: 'bg-red-100 text-red-700',
 };
 
-type Tab = 'overview' | 'members' | 'milestones' | 'tasks' | 'expenses' | 'materials' | 'resources' | 'procurement' | 'issues' | 'comments' | 'activity';
+type Tab = 'overview' | 'members' | 'milestones' | 'tasks' | 'expenses' | 'materials' | 'resources' | 'procurement' | 'issues' | 'files' | 'comments' | 'activity';
 
 type MaterialRequestFormItem = {
   name: string;
@@ -69,6 +70,8 @@ const ProjectDetail = () => {
   const [commentText, setCommentText] = useState('');
   const [commentSaving, setCommentSaving] = useState(false);
   const [activities, setActivities] = useState<any[]>([]);
+  const [attachments, setAttachments] = useState<any[]>([]);
+  const [uploading, setUploading] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [editForm, setEditForm] = useState({ name: '', description: '', location: '', status: '', industry: '', budget: '', startDate: '', endDate: '' });
   const [editSaving, setEditSaving] = useState(false);
@@ -139,11 +142,50 @@ const ProjectDetail = () => {
   }, [tab, id]);
 
   useEffect(() => {
+    if (!id || tab !== 'files') return;
+    attachmentsApi.getByEntity('project', id)
+      .then((res) => setAttachments(res.data?.data || res.data || []))
+      .catch(() => setAttachments([]));
+  }, [tab, id]);
+
+  useEffect(() => {
     if (!id || tab !== 'activity') return;
     api.get(`/activities/project/${id}?limit=50`)
       .then((res) => setActivities(res.data?.data || res.data || []))
       .catch(() => {});
   }, [tab, id]);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files?.length || !id) return;
+    setUploading(true);
+    try {
+      for (const file of Array.from(files)) {
+        const res = await attachmentsApi.upload(file, 'project', id);
+        const created = res.data?.data || res.data;
+        setAttachments((prev) => [...prev, created]);
+      }
+    } catch {} finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleDownload = async (attachment: any) => {
+    try {
+      const res = await attachmentsApi.getDownloadUrl(attachment.id);
+      const url = res.data?.url || res.data?.data?.url;
+      if (url) window.open(url, '_blank');
+    } catch {
+      if (attachment.url) window.open(attachment.url, '_blank');
+    }
+  };
+
+  const handleDeleteAttachment = async (attachmentId: string) => {
+    if (!confirm('Delete this file?')) return;
+    await attachmentsApi.remove(attachmentId);
+    setAttachments((prev) => prev.filter((a) => a.id !== attachmentId));
+  };
 
   const postComment = async () => {
     if (!commentText.trim() || !id) return;
@@ -173,6 +215,7 @@ const ProjectDetail = () => {
     { key: 'resources', label: 'Engineer Tools' },
     { key: 'procurement', label: 'Procurement' },
     { key: 'issues', label: 'Issues' },
+    { key: 'files', label: `Files${attachments.length > 0 ? ` (${attachments.length})` : ''}` },
     { key: 'comments', label: `Comments${comments.length > 0 ? ` (${comments.length})` : ''}` },
     { key: 'activity', label: 'Activity' },
   ];
@@ -899,7 +942,81 @@ const ProjectDetail = () => {
         <ProcurementPanel projectId={id} canApprove={canApprove} canEdit={canEdit} initialMaterialRequestId={selectedMaterialRequestId} />
       )}
 
-      {tab !== 'overview' && tab !== 'members' && tab !== 'materials' && tab !== 'resources' && tab !== 'procurement' && tab !== 'comments' && tab !== 'activity' && (
+      {tab === 'files' && (
+        <div className="space-y-4">
+          <div className="bg-white border border-gray-200 rounded-xl p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Project Files</h2>
+                <p className="text-sm text-gray-500 mt-1">Upload and manage files for this project (max 25 MB per file).</p>
+              </div>
+              <label className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg cursor-pointer transition-colors ${
+                uploading ? 'bg-gray-100 text-gray-400' : 'bg-blue-600 text-white hover:bg-blue-700'
+              }`}>
+                {uploading ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                    Upload Files
+                  </>
+                )}
+                <input type="file" multiple className="hidden" onChange={handleFileUpload} disabled={uploading} />
+              </label>
+            </div>
+          </div>
+
+          {attachments.length === 0 ? (
+            <div className="text-center py-16 text-gray-400">
+              <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+              <p>No files uploaded yet. Click "Upload Files" to add documents, images, or other files.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {attachments.map((a: any) => (
+                <div key={a.id} className="bg-white border border-gray-200 rounded-xl px-5 py-4 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                      {a.mimeType?.startsWith('image/') ? (
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                      ) : a.mimeType?.includes('pdf') ? (
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                      ) : (
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-medium text-gray-900 truncate">{a.filename}</p>
+                      <div className="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
+                        <span>{a.mimeType}</span>
+                        {a.size && <span>{(a.size / 1024).toFixed(1)} KB</span>}
+                        <span>{new Date(a.createdAt).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button onClick={() => handleDownload(a)}
+                      className="text-xs font-medium text-blue-600 hover:text-blue-700 px-3 py-1.5 rounded-lg hover:bg-blue-50">
+                      Download
+                    </button>
+                    {canEdit && (
+                      <button onClick={() => handleDeleteAttachment(a.id)}
+                        className="text-xs font-medium text-red-600 hover:text-red-700 px-3 py-1.5 rounded-lg hover:bg-red-50">
+                        Delete
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab !== 'overview' && tab !== 'members' && tab !== 'materials' && tab !== 'resources' && tab !== 'procurement' && tab !== 'files' && tab !== 'comments' && tab !== 'activity' && (
         tabLoading ? (
           <div className="space-y-2">{[...Array(4)].map((_, i) => <div key={i} className="h-14 bg-gray-100 rounded-xl animate-pulse" />)}</div>
         ) : data.length === 0 ? (

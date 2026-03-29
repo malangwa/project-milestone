@@ -41,7 +41,7 @@ services:
       - key: R2_SECRET_ACCESS_KEY
         sync: false
       - key: R2_BUCKET_NAME
-        value: project-milestone-files
+        value: milestone
 
   - type: web
     name: project-milestone-web
