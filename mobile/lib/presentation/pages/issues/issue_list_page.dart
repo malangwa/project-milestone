@@ -110,6 +110,127 @@ class _IssueListPageState extends State<IssueListPage> {
     }
   }
 
+  Future<void> _showEditIssueSheet(IssueModel issue) async {
+    final projectId = _selectedProjectId;
+    if (projectId == null) return;
+
+    final titleCtrl = TextEditingController(text: issue.title);
+    final descriptionCtrl =
+        TextEditingController(text: issue.description ?? '');
+    final formKey = GlobalKey<FormState>();
+    var priority = issue.severity;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (modalContext, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 16,
+                bottom: MediaQuery.viewInsetsOf(modalContext).bottom + 16,
+              ),
+              child: Form(
+                key: formKey,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        'Edit issue',
+                        style: Theme.of(modalContext).textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: titleCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Title',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'Title is required'
+                            : null,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: descriptionCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Description',
+                          border: OutlineInputBorder(),
+                        ),
+                        maxLines: 4,
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        initialValue: priority,
+                        decoration: const InputDecoration(
+                          labelText: 'Priority',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: const [
+                          DropdownMenuItem(value: 'low', child: Text('Low')),
+                          DropdownMenuItem(
+                            value: 'medium',
+                            child: Text('Medium'),
+                          ),
+                          DropdownMenuItem(value: 'high', child: Text('High')),
+                          DropdownMenuItem(
+                            value: 'critical',
+                            child: Text('Critical'),
+                          ),
+                        ],
+                        onChanged: (v) {
+                          if (v != null) setModalState(() => priority = v);
+                        },
+                      ),
+                      const SizedBox(height: 20),
+                      FilledButton(
+                        onPressed: () async {
+                          if (formKey.currentState?.validate() != true) return;
+                          try {
+                            await IssueService.instance.update(issue.id, {
+                              'projectId': projectId,
+                              'title': titleCtrl.text.trim(),
+                              'priority': priority,
+                              'description': descriptionCtrl.text.trim(),
+                            });
+                            if (sheetContext.mounted) {
+                              Navigator.pop(sheetContext);
+                            }
+                            if (!mounted) return;
+                            _refreshIssues();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Issue updated')),
+                            );
+                          } catch (_) {
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Failed to update issue'),
+                              ),
+                            );
+                          }
+                        },
+                        child: const Text('Save changes'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    titleCtrl.dispose();
+    descriptionCtrl.dispose();
+  }
+
   void _showCreateIssueSheet(BuildContext pageContext) {
     final projectId = _selectedProjectId;
     if (projectId == null) return;
@@ -419,11 +540,18 @@ class _IssueListPageState extends State<IssueListPage> {
                                     onSelected: (value) {
                                       if (value == 'delete') {
                                         _confirmDeleteIssue(issue);
+                                      } else if (value == 'edit') {
+                                        _showEditIssueSheet(issue);
                                       } else if (value != issue.status) {
                                         _updateIssueStatus(issue.id, value);
                                       }
                                     },
                                     itemBuilder: (ctx) => [
+                                      const PopupMenuItem<String>(
+                                        value: 'edit',
+                                        child: Text('Edit'),
+                                      ),
+                                      const PopupMenuDivider(),
                                       PopupMenuItem(
                                         value: 'open',
                                         enabled: issue.status != 'open',

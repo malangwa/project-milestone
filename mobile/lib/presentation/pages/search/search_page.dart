@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../app/routes.dart';
 import '../../../data/models/search_result_model.dart';
 import '../../../data/services/search_service.dart';
 import '../../widgets/empty_state.dart';
@@ -41,6 +42,15 @@ class _SearchPageState extends State<SearchPage> {
       'milestone' => Colors.green,
       _ => Colors.grey,
     };
+  }
+
+  void _openResult(SearchResultItem result) {
+    final projectId = result.type == 'project' ? result.id : result.projectId;
+    if (projectId == null || projectId.isEmpty) return;
+    Navigator.of(context).pushNamed(
+      AppRoutes.projectDetail,
+      arguments: projectId,
+    );
   }
 
   @override
@@ -100,6 +110,7 @@ class _SearchPageState extends State<SearchPage> {
                             return Card(
                               child: ListTile(
                                 contentPadding: const EdgeInsets.all(16),
+                                onTap: () => _openResult(r),
                                 leading: CircleAvatar(
                                   backgroundColor: color.withValues(alpha: 0.14),
                                   child: Text(

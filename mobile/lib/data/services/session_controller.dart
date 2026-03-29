@@ -70,4 +70,9 @@ class SessionController extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  void updateCurrentUser(UserModel user) {
+    _currentUser = user;
+    notifyListeners();
+  }
 }

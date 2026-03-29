@@ -4,12 +4,14 @@ class SearchResultItem {
     required this.label,
     required this.subtitle,
     required this.type,
+    this.projectId,
   });
 
   final String id;
   final String label;
   final String subtitle;
   final String type;
+  final String? projectId;
 }
 
 class SearchResultModel {
@@ -26,6 +28,7 @@ class SearchResultModel {
         label: p['title'] as String? ?? p['name'] as String? ?? '',
         subtitle: p['status'] as String? ?? '',
         type: 'project',
+        projectId: p['id'] as String,
       ));
     }
     for (final m in (json['milestones'] as List? ?? [])) {
@@ -34,6 +37,7 @@ class SearchResultModel {
         label: m['title'] as String? ?? m['name'] as String? ?? '',
         subtitle: 'Milestone · ${m['status'] ?? ''}',
         type: 'milestone',
+        projectId: m['projectId']?.toString(),
       ));
     }
     for (final t in (json['tasks'] as List? ?? [])) {
@@ -42,6 +46,7 @@ class SearchResultModel {
         label: t['title'] as String? ?? '',
         subtitle: 'Task · ${t['status'] ?? ''}',
         type: 'task',
+        projectId: t['projectId']?.toString(),
       ));
     }
     for (final i in (json['issues'] as List? ?? [])) {
@@ -50,6 +55,7 @@ class SearchResultModel {
         label: i['title'] as String? ?? '',
         subtitle: 'Issue · ${i['status'] ?? ''}',
         type: 'issue',
+        projectId: i['projectId']?.toString(),
       ));
     }
 

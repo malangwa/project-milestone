@@ -16,6 +16,7 @@ import '../../../data/services/milestone_service.dart';
 import '../../../data/services/project_service.dart';
 import '../../../data/services/report_service.dart';
 import '../../../data/services/task_service.dart';
+import 'project_procurement_page.dart';
 import '../../widgets/loading_indicator.dart';
 
 class _Bundle {
@@ -369,6 +370,34 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
 
                 // Files
                 _FilesSection(projectId: widget.projectId),
+                const SizedBox(height: 16),
+
+                _SectionCard(
+                  title: 'Materials & Procurement',
+                  children: [
+                    const Text(
+                      'Engineers and managers can request materials, create orders, upload invoices and receipts, and move stock between store and site.',
+                    ),
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: FilledButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => ProjectProcurementPage(
+                                projectId: widget.projectId,
+                                projectName: data.project.name,
+                              ),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.shopping_cart_outlined),
+                        label: const Text('Open materials & procurement'),
+                      ),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 16),
 
                 // Progress updates

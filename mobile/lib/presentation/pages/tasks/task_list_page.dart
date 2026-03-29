@@ -96,6 +96,29 @@ class _TaskListPageState extends State<TaskListPage> {
     }
   }
 
+  Future<void> _showEditTaskSheet(TaskModel task) async {
+    final updated = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+        ),
+        child: _CreateTaskBottomSheet(
+          projectId: task.projectId,
+          existing: task,
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (updated == true) {
+      _refreshTasks();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Task updated')),
+      );
+    }
+  }
+
   Future<void> _updateTaskStatus(TaskModel task, String newStatus) async {
     try {
       await TaskService.instance.update(task.id, {'status': newStatus});
@@ -237,6 +260,7 @@ class _TaskListPageState extends State<TaskListPage> {
                             task: task,
                             statusLabel: _statusLabel,
                             onStatusChange: (s) => _updateTaskStatus(task, s),
+                            onEdit: () => _showEditTaskSheet(task),
                             onDelete: () => _confirmDeleteTask(task),
                           );
                         },
@@ -258,12 +282,14 @@ class _TaskCard extends StatefulWidget {
     required this.task,
     required this.statusLabel,
     required this.onStatusChange,
+    required this.onEdit,
     required this.onDelete,
   });
 
   final TaskModel task;
   final String Function(String) statusLabel;
   final Future<void> Function(String) onStatusChange;
+  final Future<void> Function() onEdit;
   final Future<void> Function() onDelete;
 
   @override
@@ -365,6 +391,8 @@ class _TaskCardState extends State<_TaskCard> {
                   onSelected: (value) async {
                     if (value == '__delete__') {
                       await widget.onDelete();
+                    } else if (value == '__edit__') {
+                      await widget.onEdit();
                     } else if (value == '__photo__') {
                       await _uploadPhoto();
                     } else {
@@ -372,6 +400,7 @@ class _TaskCardState extends State<_TaskCard> {
                     }
                   },
                   itemBuilder: (ctx) => [
+                    const PopupMenuItem(value: '__edit__', child: Text('Edit')),
                     const PopupMenuItem(value: '__photo__', child: Text('Attach photo')),
                     const PopupMenuDivider(),
                     for (final s in _taskStatuses)
@@ -409,9 +438,10 @@ class _TaskCardState extends State<_TaskCard> {
 }
 
 class _CreateTaskBottomSheet extends StatefulWidget {
-  const _CreateTaskBottomSheet({required this.projectId});
+  const _CreateTaskBottomSheet({required this.projectId, this.existing});
 
   final String projectId;
+  final TaskModel? existing;
 
   @override
   State<_CreateTaskBottomSheet> createState() => _CreateTaskBottomSheetState();
@@ -425,6 +455,21 @@ class _CreateTaskBottomSheetState extends State<_CreateTaskBottomSheet> {
   String _status = 'todo';
   DateTime? _dueDate;
   bool _submitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final existing = widget.existing;
+    if (existing != null) {
+      _titleController.text = existing.title;
+      _descriptionController.text = existing.description ?? '';
+      _priority = existing.priority == 'critical' ? 'urgent' : existing.priority;
+      _status = existing.status;
+      _dueDate = existing.dueDate == null
+          ? null
+          : DateTime.tryParse(existing.dueDate!);
+    }
+  }
 
   @override
   void dispose() {
@@ -461,13 +506,23 @@ class _CreateTaskBottomSheetState extends State<_CreateTaskBottomSheet> {
       payload['dueDate'] = _dueDate!.toIso8601String().split('T').first;
     }
     try {
-      await TaskService.instance.create(payload);
+      if (widget.existing == null) {
+        await TaskService.instance.create(payload);
+      } else {
+        await TaskService.instance.update(widget.existing!.id, payload);
+      }
       if (!mounted) return;
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to create task: $e')),
+        SnackBar(
+          content: Text(
+            widget.existing == null
+                ? 'Failed to create task: $e'
+                : 'Failed to update task: $e',
+          ),
+        ),
       );
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -486,7 +541,7 @@ class _CreateTaskBottomSheetState extends State<_CreateTaskBottomSheet> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'New task',
+                widget.existing == null ? 'New task' : 'Edit task',
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               const SizedBox(height: 16),
@@ -601,7 +656,7 @@ class _CreateTaskBottomSheetState extends State<_CreateTaskBottomSheet> {
                         width: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('Create'),
+                    : Text(widget.existing == null ? 'Create' : 'Save changes'),
               ),
             ],
           ),
