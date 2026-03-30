@@ -14,7 +14,7 @@ export class AiAgentService {
 
   async platformRegister(email: string, username: string, password: string) {
     try {
-      const res = await firstValueFrom(
+      const res = await firstValueFrom<any>(
         this.http.post(`${PLATFORM_URL}/auth/register`, { email, username, password }),
       );
       return res.data;
@@ -25,7 +25,7 @@ export class AiAgentService {
 
   async platformLogin(email: string, password: string) {
     try {
-      const res = await firstValueFrom(
+      const res = await firstValueFrom<any>(
         this.http.post(`${PLATFORM_URL}/auth/login`, { email, password }),
       );
       return res.data;
@@ -36,7 +36,7 @@ export class AiAgentService {
 
   async getMe(userToken: string) {
     try {
-      const res = await firstValueFrom(
+      const res = await firstValueFrom<any>(
         this.http.get(`${PLATFORM_URL}/auth/me`, { headers: this.headers(userToken) }),
       );
       return res.data;
@@ -47,7 +47,7 @@ export class AiAgentService {
 
   async listProjects(userToken: string) {
     try {
-      const res = await firstValueFrom(
+      const res = await firstValueFrom<any>(
         this.http.get(`${PLATFORM_URL}/projects`, { headers: this.headers(userToken) }),
       );
       return res.data;
@@ -58,7 +58,7 @@ export class AiAgentService {
 
   async createProject(userToken: string, name: string, description?: string) {
     try {
-      const res = await firstValueFrom(
+      const res = await firstValueFrom<any>(
         this.http.post(`${PLATFORM_URL}/projects`, { name, description }, { headers: this.headers(userToken) }),
       );
       return res.data;
@@ -69,7 +69,7 @@ export class AiAgentService {
 
   async connectAgent(userToken: string, agentName: string, projectId: string, description?: string, expiresInMinutes?: number) {
     try {
-      const res = await firstValueFrom(
+      const res = await firstValueFrom<any>(
         this.http.post(
           `${PLATFORM_URL}/connect-agent`,
           { agent_name: agentName, project_id: projectId, description, expires_in_minutes: expiresInMinutes },
@@ -85,7 +85,7 @@ export class AiAgentService {
   async listAgents(userToken: string, projectId?: string) {
     try {
       const url = projectId ? `${PLATFORM_URL}/agents?project_id=${projectId}` : `${PLATFORM_URL}/agents`;
-      const res = await firstValueFrom(
+      const res = await firstValueFrom<any>(
         this.http.get(url, { headers: this.headers(userToken) }),
       );
       return res.data;
@@ -96,7 +96,7 @@ export class AiAgentService {
 
   async onlineAgents(userToken: string) {
     try {
-      const res = await firstValueFrom(
+      const res = await firstValueFrom<any>(
         this.http.get(`${PLATFORM_URL}/agents/online/status`, { headers: this.headers(userToken) }),
       );
       return res.data;
@@ -119,7 +119,7 @@ export class AiAgentService {
   async listRooms(userToken: string, projectId?: string) {
     try {
       const url = projectId ? `${PLATFORM_URL}/rooms?project_id=${projectId}` : `${PLATFORM_URL}/rooms`;
-      const res = await firstValueFrom(
+      const res = await firstValueFrom<any>(
         this.http.get(url, { headers: this.headers(userToken) }),
       );
       return res.data;
@@ -130,7 +130,7 @@ export class AiAgentService {
 
   async createRoom(userToken: string, name: string, projectId: string) {
     try {
-      const res = await firstValueFrom(
+      const res = await firstValueFrom<any>(
         this.http.post(`${PLATFORM_URL}/rooms`, { name, project_id: projectId }, { headers: this.headers(userToken) }),
       );
       return res.data;
@@ -141,7 +141,7 @@ export class AiAgentService {
 
   async joinRoom(userToken: string, roomId: string) {
     try {
-      const res = await firstValueFrom(
+      const res = await firstValueFrom<any>(
         this.http.post(`${PLATFORM_URL}/rooms/${roomId}/join`, {}, { headers: this.headers(userToken) }),
       );
       return res.data;
@@ -152,7 +152,7 @@ export class AiAgentService {
 
   async getRoomMembers(userToken: string, roomId: string) {
     try {
-      const res = await firstValueFrom(
+      const res = await firstValueFrom<any>(
         this.http.get(`${PLATFORM_URL}/rooms/${roomId}/members`, { headers: this.headers(userToken) }),
       );
       return res.data;
@@ -163,7 +163,7 @@ export class AiAgentService {
 
   async getRoomOnline(userToken: string, roomId: string) {
     try {
-      const res = await firstValueFrom(
+      const res = await firstValueFrom<any>(
         this.http.get(`${PLATFORM_URL}/rooms/${roomId}/online`, { headers: this.headers(userToken) }),
       );
       return res.data;
@@ -174,7 +174,7 @@ export class AiAgentService {
 
   async sendMessage(agentToken: string, room: string, content: any, type: string = 'info') {
     try {
-      const res = await firstValueFrom(
+      const res = await firstValueFrom<any>(
         this.http.post(
           `${PLATFORM_URL}/message`,
           { room, content, type },
@@ -189,7 +189,7 @@ export class AiAgentService {
 
   async getMessages(userToken: string, roomId: string, limit = 50, offset = 0) {
     try {
-      const res = await firstValueFrom(
+      const res = await firstValueFrom<any>(
         this.http.get(`${PLATFORM_URL}/messages/${roomId}?limit=${limit}&offset=${offset}`, {
           headers: this.headers(userToken),
         }),
@@ -221,7 +221,7 @@ export class AiAgentService {
 
   async askAi(userToken: string, question: string) {
     try {
-      const res = await firstValueFrom(
+      const res = await firstValueFrom<any>(
         this.http.post(`${PLATFORM_URL}/ask`, { question }, { headers: this.headers(userToken) }),
       );
       return res.data;
