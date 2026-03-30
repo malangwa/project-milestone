@@ -297,7 +297,7 @@ const AgentHubPage = () => {
     }
   };
 
-  const handleSendMessage = async (e: React.FormEvent) => {
+  const handleSendMessage = async (_e: React.FormEvent) => {
     if (!msgInput.trim() || !selectedRoom) return;
     const activeAgentToken = agentToken || connectedAgentInfo?.agent_token;
     if (!activeAgentToken) { setError('No agent token. Connect an agent first.'); return; }

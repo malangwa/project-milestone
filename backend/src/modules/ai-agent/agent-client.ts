@@ -1,7 +1,7 @@
 import { Injectable, OnModuleDestroy, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
-import * as WebSocket from 'ws';
+import WebSocket = require('ws');
 
 const PLATFORM_BASE = 'http://64.118.157.17';
 const PLATFORM_WS   = 'ws://64.118.157.17';
@@ -38,6 +38,7 @@ export class AgentClient implements OnModuleDestroy {
     const url = `${PLATFORM_WS}/ws/${this.room}?token=${this.token}`;
     this.ws = new WebSocket(url);
 
+    if (!this.ws) return;
     this.ws.on('open', () => {
       this.logger.log(`AgentClient connected to room=${this.room}`);
     });
@@ -98,7 +99,7 @@ export class AgentClient implements OnModuleDestroy {
   /** Validate token and get agent identity — GET /agent/ping */
   async ping(): Promise<{ valid: boolean; agent_id: string; agent_name: string; project_id: string; rooms: string[]; message: string }> {
     if (!this.token) throw new Error('AgentClient not initialized');
-    const res = await firstValueFrom(
+    const res = await firstValueFrom<any>(
       this.http.get(`${PLATFORM_BASE}/agent/ping`, {
         headers: { Authorization: `Bearer ${this.token}` },
       }),
@@ -109,7 +110,7 @@ export class AgentClient implements OnModuleDestroy {
   /** Discover all rooms available to token with ws_url + http_messages_url — GET /agent/rooms */
   async rooms(): Promise<{ agent: string; rooms: Array<{ name: string; id: string; ws_url: string; http_messages_url: string }> }> {
     if (!this.token) throw new Error('AgentClient not initialized');
-    const res = await firstValueFrom(
+    const res = await firstValueFrom<any>(
       this.http.get(`${PLATFORM_BASE}/agent/rooms`, {
         headers: { Authorization: `Bearer ${this.token}` },
       }),
@@ -120,7 +121,7 @@ export class AgentClient implements OnModuleDestroy {
   /** Fetch message history (returns oldest-first) */
   async history(limit = 50): Promise<PlatformMessage[]> {
     if (!this.token || !this.room) return [];
-    const res = await firstValueFrom(
+    const res = await firstValueFrom<any>(
       this.http.get(`${PLATFORM_BASE}/messages/${this.room}?limit=${limit}`, {
         headers: { Authorization: `Bearer ${this.token}` },
       }),
@@ -130,7 +131,7 @@ export class AgentClient implements OnModuleDestroy {
 
   private async post(type: string, content: string) {
     if (!this.token || !this.room) throw new Error('AgentClient not initialized');
-    const res = await firstValueFrom(
+    const res = await firstValueFrom<any>(
       this.http.post(
         `${PLATFORM_BASE}/message`,
         { room: this.room, type, content },
