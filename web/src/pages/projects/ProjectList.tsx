@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { projectsApi } from '../../api/projects.api';
 import type { Project } from '../../types/project.types';
+import { useSubscription } from '../../hooks/useSubscription';
+import SubscriptionGate from '../../components/subscription/SubscriptionGate';
 
 const statusColor: Record<string, string> = {
   planning: 'bg-gray-100 text-gray-700',
@@ -18,6 +20,8 @@ const ProjectList = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showGate, setShowGate] = useState(false);
+  const { subscription, canCreateProject } = useSubscription();
   const [form, setForm] = useState({ name: '', description: '', location: '', industry: 'other', status: 'planning', budget: '', givenCash: '', startDate: '', endDate: '' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -83,7 +87,13 @@ const ProjectList = () => {
           <p className="text-gray-500 text-sm mt-1">{projects.length} project{projects.length !== 1 ? 's' : ''}</p>
         </div>
         <button
-          onClick={() => setShowModal(true)}
+          onClick={() => {
+            if (!canCreateProject(projects.length)) {
+              setShowGate(true);
+            } else {
+              setShowModal(true);
+            }
+          }}
           className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
         >
           + New Project
@@ -141,6 +151,16 @@ const ProjectList = () => {
             </div>
           ))}
         </div>
+      )}
+
+      {showGate && subscription && (
+        <SubscriptionGate
+          onClose={() => setShowGate(false)}
+          currentPlan={subscription.plan}
+          limitType="projects"
+          currentCount={projects.length}
+          limit={subscription.limits.projects}
+        />
       )}
 
       {showModal && (
