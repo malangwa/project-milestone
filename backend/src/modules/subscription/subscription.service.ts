@@ -42,7 +42,7 @@ export class SubscriptionService {
     if (!email || !password) {
       throw new BadRequestException('UZA-MANAGER credentials not configured. Set UZA_MANAGER_EMAIL and UZA_MANAGER_PASSWORD in .env');
     }
-    const res = await firstValueFrom(
+    const res = await firstValueFrom<any>(
       this.http.post(`${UZA_BASE}/auth/owner/login`, { email, password }),
     );
     const token: string = res.data?.token ?? res.data?.access_token ?? res.data?.accessToken;
@@ -102,7 +102,7 @@ export class SubscriptionService {
     let palmPesaOrderId = '';
     let rawResponse = '';
     try {
-      const res = await firstValueFrom(
+      const res = await firstValueFrom<any>(
         this.http.post(
           `${UZA_BASE}/palmPesa/initiate`,
           { phone: dto.phone, months: dto.months },
@@ -162,7 +162,7 @@ export class SubscriptionService {
     let uzaStatus = 'unknown';
     try {
       const { token, shopId } = await this.getUzaToken();
-      const res = await firstValueFrom(
+      const res = await firstValueFrom<any>(
         this.http.get(`${UZA_BASE}/palmPesa/status/${orderId}`, {
           headers: {
             Authorization: `Bearer ${token}`,
