@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -12,6 +13,7 @@ import {
   StockMovement,
   StockMovementType,
 } from '../inventory/entities/stock-movement.entity';
+import { AgentClient } from '../ai-agent/agent-client';
 
 @Injectable()
 export class TasksService {
@@ -22,6 +24,7 @@ export class TasksService {
     private readonly stockRepo: Repository<StockItem>,
     @InjectRepository(StockMovement)
     private readonly movementsRepo: Repository<StockMovement>,
+    @Optional() private readonly agentClient: AgentClient,
   ) {}
 
   private normalizeMaterials(
@@ -186,7 +189,28 @@ export class TasksService {
       await this.repo.save(updated);
     }
 
-    return this.findOne(id);
+    const updated = await this.findOne(id);
+
+    // Broadcast task_update if status changed
+    if (data.status && data.status !== existing.status && this.agentClient) {
+      const agentToken = process.env.AI_AGENT_TOKEN;
+      const room = process.env.AI_AGENT_ROOM || 'main-room';
+      if (agentToken) {
+        this.agentClient.init(agentToken, room);
+        this.agentClient.event({
+          event_type: 'task_update',
+          task: updated.title,
+          task_id: updated.id,
+          project_id: updated.projectId,
+          status: updated.status,
+          previous_status: existing.status,
+          priority: updated.priority,
+          assignee: updated.assignedTo?.name || null,
+        }).catch(() => {});
+      }
+    }
+
+    return updated;
   }
 
   async remove(id: string, userId?: string): Promise<void> {

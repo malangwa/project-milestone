@@ -18,6 +18,8 @@ const navItems = [
   { to: '/search', label: 'Search', icon: '🔍' },
   { to: '/time-tracking', label: 'Time Tracking', icon: '⏱' },
   { to: '/resources', label: 'Resources', icon: '🔧' },
+  { to: '/agent-hub', label: 'Agent Hub', icon: '🤖' },
+  { to: '/subscription', label: 'Subscription', icon: '💳' },
   { to: '/users', label: 'Users', icon: '👥', roles: ['admin', 'manager'] as UserRole[] },
   { to: '/audit-logs', label: 'Audit Logs', icon: '🧾', roles: ['admin'] as UserRole[] },
 ];

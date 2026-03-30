@@ -28,6 +28,8 @@ import { PurchaseOrdersModule } from './modules/purchase-orders/purchase-orders.
 import { SupplierInvoicesModule } from './modules/supplier-invoices/supplier-invoices.module';
 import { GoodsReceiptsModule } from './modules/goods-receipts/goods-receipts.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
+import { AiAgentModule } from './modules/ai-agent/ai-agent.module';
+import { SubscriptionModule } from './modules/subscription/subscription.module';
 
 @Module({
   imports: [
@@ -88,6 +90,8 @@ import { InventoryModule } from './modules/inventory/inventory.module';
     SupplierInvoicesModule,
     GoodsReceiptsModule,
     InventoryModule,
+    AiAgentModule,
+    SubscriptionModule,
   ],
 })
 export class AppModule {}

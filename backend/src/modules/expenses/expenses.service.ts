@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -9,6 +10,7 @@ import { Expense, ExpenseStatus } from './entities/expense.entity';
 import { Project } from '../projects/entities/project.entity';
 import { UserRole } from '../users/entities/user.entity';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { AgentClient } from '../ai-agent/agent-client';
 
 @Injectable()
 export class ExpensesService {
@@ -18,6 +20,7 @@ export class ExpensesService {
     @InjectRepository(Project)
     private readonly projectsRepo: Repository<Project>,
     private readonly auditLogsService: AuditLogsService,
+    @Optional() private readonly agentClient?: AgentClient,
   ) {}
 
   async create(data: any): Promise<Expense> {
@@ -83,6 +86,23 @@ export class ExpensesService {
       before: before as unknown as object,
       after: updated as unknown as object,
     });
+
+    const agentToken = process.env.AI_AGENT_TOKEN;
+    const room = process.env.AI_AGENT_ROOM || 'main-room';
+    if (this.agentClient && agentToken) {
+      this.agentClient.init(agentToken, room);
+      this.agentClient.event({
+        event_type: 'expense_approved',
+        invoice_id: updated.id,
+        amount: Number(updated.amount),
+        payment_method: 'Mobile',
+        title: updated.title,
+        category: updated.category,
+        project_id: updated.projectId,
+        approved_by: approverId,
+      }).catch(() => {});
+    }
+
     return updated;
   }
 

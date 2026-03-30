@@ -25,6 +25,8 @@ const UsersManagement = lazy(() => import('../pages/users/UsersManagement'));
 const TimeTracking = lazy(() => import('../pages/time-tracking/TimeTracking'));
 const ResourcesPage = lazy(() => import('../pages/resources/ResourcesPage'));
 const AuditLogs = lazy(() => import('../pages/audit/AuditLogs'));
+const AgentHubPage = lazy(() => import('../pages/agent-hub/AgentHubPage'));
+const SubscriptionPage = lazy(() => import('../pages/subscription/SubscriptionPage'));
 
 const withSuspense = (element: ReactNode) => (
   <Suspense fallback={<div className="p-6 text-sm text-gray-500">Loading...</div>}>{element}</Suspense>
@@ -62,6 +64,8 @@ export const router = createBrowserRouter([
           },
           { path: '/time-tracking', element: withSuspense(<TimeTracking />) },
           { path: '/resources', element: withSuspense(<ResourcesPage />) },
+          { path: '/agent-hub', element: withSuspense(<AgentHubPage />) },
+          { path: '/subscription', element: withSuspense(<SubscriptionPage />) },
         ],
       },
     ],
