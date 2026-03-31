@@ -47,7 +47,8 @@ export class SubscriptionService {
     );
     const token: string = res.data?.token ?? res.data?.access_token ?? res.data?.accessToken;
     if (!token) throw new BadRequestException('UZA-MANAGER login failed: no token returned');
-    return { token, shopId: res.data?.shop_id ?? shopId };
+    const extractedShopId = res.data?.shops?.[0]?.shop_id ?? res.data?.shop_id ?? shopId;
+    return { token, shopId: extractedShopId };
   }
 
   async getOrCreateSubscription(userId: string): Promise<Subscription> {
@@ -104,7 +105,7 @@ export class SubscriptionService {
     try {
       const res = await firstValueFrom<any>(
         this.http.post(
-          `${UZA_BASE}/palmPesa/initiate`,
+          `${UZA_BASE}/palmpesa/initiate`,
           { phone: dto.phone, months: dto.months },
           { headers },
         ),
@@ -163,7 +164,7 @@ export class SubscriptionService {
     try {
       const { token, shopId } = await this.getUzaToken();
       const res = await firstValueFrom<any>(
-        this.http.get(`${UZA_BASE}/palmPesa/status/${orderId}`, {
+        this.http.get(`${UZA_BASE}/palmpesa/status/${orderId}`, {
           headers: {
             Authorization: `Bearer ${token}`,
             'shop-id': sub.uzaShopId ?? shopId,
