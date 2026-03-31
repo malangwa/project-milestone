@@ -17,6 +17,15 @@ export interface Subscription {
   limits: SubscriptionLimits;
 }
 
+const FREE_PLAN_FALLBACK: Subscription = {
+  id: '',
+  plan: 'free',
+  status: 'active',
+  currentPeriodStart: null,
+  currentPeriodEnd: null,
+  limits: { projects: 1, users: 3, price: 0, label: 'Free' },
+};
+
 export function useSubscription() {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
@@ -31,14 +40,14 @@ export function useSubscription() {
 
   useEffect(() => { fetch(); }, [fetch]);
 
-  const isActive = subscription?.status === 'active';
-  const isPaid   = subscription?.plan !== 'free' && isActive;
+  const effective  = subscription ?? FREE_PLAN_FALLBACK;
+  const isActive   = effective.status === 'active';
+  const isPaid     = effective.plan !== 'free' && isActive;
 
   const canCreateProject = (currentCount: number) => {
-    if (!subscription) return true;
-    const limit = subscription.limits.projects;
+    const limit = effective.limits.projects;
     return limit === -1 || currentCount < limit;
   };
 
-  return { subscription, loading, isActive, isPaid, canCreateProject, refresh: fetch };
+  return { subscription: effective, loading, isActive, isPaid, canCreateProject, refresh: fetch };
 }

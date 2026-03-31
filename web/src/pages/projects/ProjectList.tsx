@@ -153,7 +153,7 @@ const ProjectList = () => {
         </div>
       )}
 
-      {showGate && subscription && (
+      {showGate && (
         <SubscriptionGate
           onClose={() => setShowGate(false)}
           currentPlan={subscription.plan}
