@@ -43,7 +43,7 @@ export class SubscriptionService {
       throw new BadRequestException('UZA-MANAGER credentials not configured. Set UZA_MANAGER_EMAIL and UZA_MANAGER_PASSWORD in .env');
     }
     const res = await firstValueFrom<any>(
-      this.http.post(`${UZA_BASE}/auth/owner/login`, { email, password }),
+      this.http.post(`${UZA_BASE}/owners/login`, { email, password }),
     );
     const token: string = res.data?.token ?? res.data?.access_token ?? res.data?.accessToken;
     if (!token) throw new BadRequestException('UZA-MANAGER login failed: no token returned');
@@ -106,7 +106,13 @@ export class SubscriptionService {
       const res = await firstValueFrom<any>(
         this.http.post(
           `${UZA_BASE}/palmpesa/initiate`,
-          { phone: dto.phone, months: dto.months },
+          {
+            phone: dto.phone,
+            months: dto.months,
+            source: 'milestone',
+            subscriber_name: dto.subscriberName ?? '',
+            subscriber_email: dto.subscriberEmail ?? '',
+          },
           { headers },
         ),
       );

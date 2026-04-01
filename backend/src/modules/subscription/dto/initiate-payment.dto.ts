@@ -16,4 +16,12 @@ export class InitiatePaymentDto {
   @IsString()
   @IsOptional()
   uzaShopId?: string;
+
+  @IsString()
+  @IsOptional()
+  subscriberName?: string;
+
+  @IsString()
+  @IsOptional()
+  subscriberEmail?: string;
 }
