@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../app/routes.dart';
+import '../../../config/app_theme.dart';
 import '../../../data/models/project_model.dart';
 import '../../../data/services/project_service.dart';
 import '../../widgets/empty_state.dart';
@@ -99,9 +100,8 @@ class _ProjectListPageState extends State<ProjectListPage> {
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: TextField(
               decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.search),
+                prefixIcon: Icon(Icons.search, size: 20, color: AppTheme.textMuted),
                 hintText: 'Search projects',
-                border: OutlineInputBorder(),
               ),
               onChanged: (value) =>
                   setState(() => _query = value.trim().toLowerCase()),
@@ -176,66 +176,125 @@ class _ProjectListPageState extends State<ProjectListPage> {
                   return ListView.separated(
                     padding: const EdgeInsets.all(16),
                     itemCount: projects.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 8),
+                    separatorBuilder: (_, _) => const SizedBox(height: 10),
                     itemBuilder: (context, index) {
                       final project = projects[index];
                       return Card(
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.all(16),
-                          title: Text(project.name),
-                          subtitle: Padding(
-                            padding: const EdgeInsets.only(top: 6),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(20),
+                          onTap: () => Navigator.of(context).pushNamed(
+                            AppRoutes.projectDetail,
+                            arguments: project.id,
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                if ((project.description ?? '').isNotEmpty)
-                                  Text(project.description!),
-                                const SizedBox(height: 6),
-                                Text(
-                                  [
-                                    project.industry,
-                                    if ((project.location ?? '').isNotEmpty)
-                                      project.location!,
-                                    'Budget ${currency.format(project.budget)}',
-                                  ].join(' • '),
+                                Row(
+                                  children: [
+                                    Container(
+                                      width: 44,
+                                      height: 44,
+                                      decoration: BoxDecoration(
+                                        gradient: AppTheme.primaryGradient,
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          project.name.isNotEmpty
+                                              ? project.name.characters.first.toUpperCase()
+                                              : '?',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            project.name,
+                                            style: const TextStyle(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w700,
+                                              color: AppTheme.textPrimary,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            project.industry,
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              color: AppTheme.textMuted,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    _ProjectStatusChip(status: project.status),
+                                    PopupMenuButton<String>(
+                                      icon: const Icon(Icons.more_vert, size: 20, color: AppTheme.textMuted),
+                                      onSelected: (value) {
+                                        if (value == 'delete') _confirmDeleteProject(project);
+                                      },
+                                      itemBuilder: (context) => [
+                                        const PopupMenuItem(
+                                          value: 'delete',
+                                          child: ListTile(
+                                            contentPadding: EdgeInsets.zero,
+                                            leading: Icon(Icons.delete_outline, color: AppTheme.red600),
+                                            title: Text('Delete', style: TextStyle(color: AppTheme.red600)),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                                if ((project.description ?? '').isNotEmpty) ...[
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    project.description!,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: AppTheme.textSecondary,
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                ],
+                                const SizedBox(height: 12),
+                                Row(
+                                  children: [
+                                    if ((project.location ?? '').isNotEmpty) ...[
+                                      const Icon(Icons.place_outlined, size: 14, color: AppTheme.textMuted),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        project.location!,
+                                        style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
+                                      ),
+                                      const SizedBox(width: 12),
+                                    ],
+                                    const Icon(Icons.attach_money, size: 14, color: AppTheme.textMuted),
+                                    Text(
+                                      currency.format(project.budget),
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: AppTheme.textSecondary,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
                           ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Chip(
-                                label: Text(
-                                  project.status.replaceAll('_', ' '),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              PopupMenuButton<String>(
-                                onSelected: (value) {
-                                  if (value == 'delete') {
-                                    _confirmDeleteProject(project);
-                                  }
-                                },
-                                itemBuilder: (context) => [
-                                  const PopupMenuItem(
-                                    value: 'delete',
-                                    child: ListTile(
-                                      contentPadding: EdgeInsets.zero,
-                                      leading: Icon(Icons.delete_outline),
-                                      title: Text('Delete'),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          onTap: () {
-                            Navigator.of(context).pushNamed(
-                              AppRoutes.projectDetail,
-                              arguments: project.id,
-                            );
-                          },
                         ),
                       );
                     },
@@ -246,10 +305,15 @@ class _ProjectListPageState extends State<ProjectListPage> {
         ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: _showCreateProjectSheet,
         tooltip: 'New project',
-        child: const Icon(Icons.add),
+        backgroundColor: AppTheme.primary,
+        foregroundColor: Colors.white,
+        elevation: 4,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('New', style: TextStyle(fontWeight: FontWeight.w600)),
       ),
     );
   }
@@ -560,21 +624,60 @@ class _ProjectFigureCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF3F4F6),
-        borderRadius: BorderRadius.circular(12),
+        color: AppTheme.slate100,
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label,
-            style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+            style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
           ),
           const SizedBox(height: 4),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
+          Text(
+            value,
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              color: AppTheme.textPrimary,
+              fontSize: 14,
+            ),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+class _ProjectStatusChip extends StatelessWidget {
+  const _ProjectStatusChip({required this.status});
+
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = switch (status) {
+      'active' => (AppTheme.emerald50, AppTheme.emerald600),
+      'completed' => (AppTheme.indigo50, AppTheme.primary),
+      'on_hold' => (AppTheme.amber50, AppTheme.amber600),
+      'cancelled' => (AppTheme.red50, AppTheme.red600),
+      _ => (AppTheme.slate100, AppTheme.textSecondary),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: colors.$1,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        status.replaceAll('_', ' '),
+        style: TextStyle(
+          color: colors.$2,
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }

@@ -1,14 +1,23 @@
 import { useEffect, useState } from 'react';
 import { usersApi } from '../../api/users.api';
 import { useAuthStore } from '../../store/auth.store';
+import { Plus, X, Users, Lock, CheckCircle, AlertCircle } from 'lucide-react';
 
 const roleColors: Record<string, string> = {
   admin: 'bg-red-100 text-red-700',
-  manager: 'bg-blue-100 text-blue-700',
-  engineer: 'bg-purple-100 text-purple-700',
-  viewer: 'bg-gray-100 text-gray-600',
-  client: 'bg-green-100 text-green-700',
-  subcontractor: 'bg-yellow-100 text-yellow-700',
+  manager: 'bg-indigo-100 text-indigo-700',
+  engineer: 'bg-violet-100 text-violet-700',
+  viewer: 'bg-slate-100 text-slate-600',
+  client: 'bg-emerald-100 text-emerald-700',
+  subcontractor: 'bg-amber-100 text-amber-700',
+};
+const avatarGrad: Record<string, string> = {
+  admin: 'from-red-500 to-rose-600',
+  manager: 'from-indigo-500 to-blue-600',
+  engineer: 'from-violet-500 to-purple-600',
+  viewer: 'from-slate-400 to-slate-500',
+  client: 'from-emerald-500 to-green-600',
+  subcontractor: 'from-amber-500 to-orange-500',
 };
 
 const ROLES = ['admin', 'manager', 'engineer', 'viewer', 'client', 'subcontractor'];
@@ -79,80 +88,83 @@ const UsersManagement = () => {
 
   if (me?.role !== 'admin' && me?.role !== 'manager') {
     return (
-      <div className="p-6 text-center text-gray-400 py-16">
-        <p className="text-4xl mb-3">🔒</p>
-        <p>You don't have permission to view this page.</p>
+      <div className="p-6 lg:p-8 flex flex-col items-center justify-center py-24">
+        <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center mb-4"><Lock size={24} className="text-slate-400" /></div>
+        <p className="text-slate-500 font-medium">You don’t have permission to view this page.</p>
       </div>
     );
   }
 
+  const inp = 'w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors';
+
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-6 lg:p-8 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Users</h1>
-          <p className="text-gray-500 text-sm mt-1">Manage team members and roles</p>
+          <h1 className="text-2xl font-bold text-slate-900">Users</h1>
+          <p className="text-slate-500 text-sm mt-1">{users.length} team member{users.length !== 1 ? 's' : ''}</p>
         </div>
         {me?.role === 'admin' && (
           <button onClick={() => { setShowCreate(true); setCreateError(''); setCreateForm({ ...EMPTY_CREATE }); }}
-            className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg">
-            + New User
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xl shadow-lg shadow-indigo-200 transition-all">
+            <Plus size={16} /> New User
           </button>
         )}
       </div>
 
       {msg && (
-        <div className={`text-sm px-4 py-2.5 rounded-lg mb-4 ${
-          msg.includes('updated') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
-        }`}>{msg}</div>
+        <div className={`flex items-center gap-2 text-sm px-4 py-3 rounded-xl mb-4 ${
+          msg.includes('updated') || msg.includes('created') ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'
+        }`}>
+          {msg.includes('updated') || msg.includes('created') ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
+          {msg}
+        </div>
       )}
 
       {loading ? (
-        <div className="space-y-2">
-          {[...Array(5)].map((_, i) => <div key={i} className="h-14 bg-gray-100 rounded-xl animate-pulse" />)}
+        <div className="space-y-2">{[...Array(5)].map((_, i) => <div key={i} className="h-16 bg-slate-100 rounded-2xl animate-pulse" />)}</div>
+      ) : users.length === 0 ? (
+        <div className="text-center py-20">
+          <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-3"><Users size={24} className="text-slate-400" /></div>
+          <p className="text-slate-400 font-medium">No users yet</p>
         </div>
       ) : (
-        <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+        <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="text-left px-5 py-3 font-semibold text-gray-600">Name</th>
-                <th className="text-left px-5 py-3 font-semibold text-gray-600">Email</th>
-                <th className="text-left px-5 py-3 font-semibold text-gray-600">Role</th>
-                <th className="text-left px-5 py-3 font-semibold text-gray-600">Status</th>
-                {me?.role === 'admin' && <th className="px-5 py-3" />}
+              <tr className="bg-slate-50 border-b border-slate-200">
+                <th className="text-left px-5 py-3.5 font-semibold text-slate-600">Name</th>
+                <th className="text-left px-5 py-3.5 font-semibold text-slate-600">Email</th>
+                <th className="text-left px-5 py-3.5 font-semibold text-slate-600">Role</th>
+                <th className="text-left px-5 py-3.5 font-semibold text-slate-600">Status</th>
+                {me?.role === 'admin' && <th className="px-5 py-3.5" />}
               </tr>
             </thead>
             <tbody>
               {users.map((u) => (
-                <tr key={u.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                <tr key={u.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50 transition-colors">
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold shrink-0">
+                      <div className={`w-8 h-8 rounded-xl bg-gradient-to-br ${avatarGrad[u.role] || 'from-slate-400 to-slate-500'} text-white flex items-center justify-center text-xs font-bold shrink-0`}>
                         {u.name?.charAt(0).toUpperCase()}
                       </div>
-                      <span className="font-medium text-gray-900">{u.name}</span>
-                      {u.id === me?.id && <span className="text-xs bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-full">You</span>}
+                      <span className="font-semibold text-slate-900">{u.name}</span>
+                      {u.id === me?.id && <span className="text-xs bg-indigo-50 text-indigo-600 font-semibold px-1.5 py-0.5 rounded-full">You</span>}
                     </div>
                   </td>
-                  <td className="px-5 py-3.5 text-gray-500">{u.email}</td>
+                  <td className="px-5 py-3.5 text-slate-500">{u.email}</td>
                   <td className="px-5 py-3.5">
                     {editingId === u.id && me?.role === 'admin' ? (
-                      <select
-                        value={editRole}
-                        onChange={(e) => setEditRole(e.target.value)}
-                        className="px-2 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
+                      <select value={editRole} onChange={(e) => setEditRole(e.target.value)}
+                        className="px-2.5 py-1.5 border border-slate-200 rounded-xl text-xs bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                         {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
                       </select>
                     ) : (
-                      <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${roleColors[u.role] ?? 'bg-gray-100 text-gray-600'}`}>
-                        {u.role}
-                      </span>
+                      <span className={`text-xs font-semibold px-2.5 py-1 rounded-full capitalize ${roleColors[u.role] ?? 'bg-slate-100 text-slate-600'}`}>{u.role}</span>
                     )}
                   </td>
                   <td className="px-5 py-3.5">
-                    <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${u.isActive ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${u.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
                       {u.isActive ? 'Active' : 'Inactive'}
                     </span>
                   </td>
@@ -161,19 +173,13 @@ const UsersManagement = () => {
                       {editingId === u.id ? (
                         <div className="flex items-center gap-2 justify-end">
                           <button onClick={() => saveEdit(u.id)} disabled={saving}
-                            className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50">
-                            {saving ? '...' : 'Save'}
+                            className="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 disabled:opacity-50 font-semibold">
+                            {saving ? '…' : 'Save'}
                           </button>
-                          <button onClick={() => setEditingId(null)}
-                            className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1.5">
-                            Cancel
-                          </button>
+                          <button onClick={() => setEditingId(null)} className="text-xs text-slate-500 hover:text-slate-700 font-medium">Cancel</button>
                         </div>
                       ) : (
-                        <button onClick={() => startEdit(u)}
-                          className="text-xs text-blue-600 hover:text-blue-700 font-medium">
-                          Edit
-                        </button>
+                        <button onClick={() => startEdit(u)} className="text-xs text-indigo-600 hover:text-indigo-700 font-semibold">Edit</button>
                       )}
                     </td>
                   )}
@@ -185,52 +191,40 @@ const UsersManagement = () => {
       )}
 
       {showCreate && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
-            <div className="flex items-center justify-between p-6 border-b border-gray-100">
-              <h2 className="text-lg font-semibold text-gray-900">Create New User</h2>
-              <button onClick={() => setShowCreate(false)} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center"><Plus size={16} className="text-white" /></div>
+                <h2 className="text-base font-semibold text-slate-900">Create New User</h2>
+              </div>
+              <button onClick={() => setShowCreate(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors"><X size={18} /></button>
             </div>
             <form onSubmit={handleCreate} className="p-6 space-y-4">
               {createError && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{createError}</div>
+                <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm"><AlertCircle size={14} />{createError}</div>
               )}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
-                <input required value={createForm.name}
-                  onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="John Doe" />
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Full Name *</label>
+                <input required value={createForm.name} onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })} className={inp} placeholder="John Doe" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
-                <input required type="email" value={createForm.email}
-                  onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="john@example.com" />
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Email *</label>
+                <input required type="email" value={createForm.email} onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })} className={inp} placeholder="john@example.com" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Password *</label>
-                <input required type="password" minLength={6} value={createForm.password}
-                  onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Min 6 characters" />
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Password *</label>
+                <input required type="password" minLength={6} value={createForm.password} onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })} className={inp} placeholder="Min 6 characters" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
-                <select value={createForm.role}
-                  onChange={(e) => setCreateForm({ ...createForm, role: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Role</label>
+                <select value={createForm.role} onChange={(e) => setCreateForm({ ...createForm, role: e.target.value })} className={inp}>
                   {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
               <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowCreate(false)}
-                  className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 text-sm rounded-lg hover:bg-gray-50">Cancel</button>
-                <button type="submit" disabled={createSaving}
-                  className="flex-1 px-4 py-2.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50">
-                  {createSaving ? 'Creating...' : 'Create User'}
-                </button>
+                <button type="button" onClick={() => setShowCreate(false)} className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-600 text-sm font-medium rounded-xl hover:bg-slate-50 transition-colors">Cancel</button>
+                <button type="submit" disabled={createSaving} className="flex-1 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl disabled:opacity-50 shadow-lg shadow-indigo-200 transition-all">{createSaving ? 'Creating…' : 'Create User'}</button>
               </div>
             </form>
           </div>

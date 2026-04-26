@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { searchApi } from '../../api/search.api';
+import { Search, ChevronRight, Layers } from 'lucide-react';
 
 type ResultItem = {
   id: string;
@@ -11,10 +12,10 @@ type ResultItem = {
 };
 
 const typeColor: Record<string, string> = {
-  project: 'bg-blue-100 text-blue-700',
-  task: 'bg-purple-100 text-purple-700',
+  project: 'bg-indigo-100 text-indigo-700',
+  task: 'bg-violet-100 text-violet-700',
   issue: 'bg-red-100 text-red-700',
-  milestone: 'bg-green-100 text-green-700',
+  milestone: 'bg-emerald-100 text-emerald-700',
 };
 
 const SearchPage = () => {
@@ -65,50 +66,50 @@ const SearchPage = () => {
   };
 
   return (
-    <div className="p-6 max-w-3xl mx-auto">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Search</h1>
+    <div className="p-6 lg:p-8 max-w-3xl mx-auto">
+      <h1 className="text-2xl font-bold text-slate-900 mb-2">Search</h1>
+      <p className="text-slate-500 text-sm mb-6">Find projects, tasks, milestones, and issues</p>
 
-      <div className="flex gap-3 mb-6">
-        <input
-          ref={inputRef}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={handleKey}
-          placeholder="Search projects, tasks, milestones, issues..."
-          className="flex-1 px-4 py-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
+      <div className="flex gap-2 mb-6">
+        <div className="relative flex-1">
+          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input ref={inputRef} value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={handleKey}
+            placeholder="Search projects, tasks, milestones, issues…"
+            className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors" />
+        </div>
         <button onClick={runSearch} disabled={!query.trim() || loading}
-          className="px-5 py-3 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">
-          {loading ? 'Searching...' : 'Search'}
+          className="px-5 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold disabled:opacity-50 shadow-lg shadow-indigo-200 transition-all">
+          {loading ? 'Searching…' : 'Search'}
         </button>
       </div>
 
       {loading ? (
-        <div className="space-y-2">{[...Array(4)].map((_, i) => <div key={i} className="h-16 bg-gray-100 rounded-xl animate-pulse" />)}</div>
+        <div className="space-y-2">{[...Array(4)].map((_, i) => <div key={i} className="h-16 bg-slate-100 rounded-2xl animate-pulse" />)}</div>
       ) : searched && results.length === 0 ? (
-        <div className="text-center py-16 text-gray-400">No results for "{query}".</div>
+        <div className="text-center py-16">
+          <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-3"><Search size={20} className="text-slate-400" /></div>
+          <p className="text-slate-400 font-medium">No results for “{query}”</p>
+        </div>
       ) : (
         <div className="space-y-2">
           {results.map((r) => (
             <Link key={`${r.type}-${r.id}`} to={r.href}
-              className="flex items-center gap-4 bg-white border border-gray-200 rounded-xl px-5 py-4 hover:border-blue-200 transition-colors">
-              <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize shrink-0 ${typeColor[r.type]}`}>
-                {r.type}
-              </span>
+              className="flex items-center gap-4 bg-white border border-slate-200 rounded-2xl px-5 py-4 hover:border-indigo-200 hover:shadow-sm transition-all group">
+              <span className={`text-xs font-semibold px-2.5 py-1 rounded-full capitalize shrink-0 ${typeColor[r.type]}`}>{r.type}</span>
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-gray-900 truncate">{r.label}</p>
-                <p className="text-xs text-gray-500 truncate mt-0.5 capitalize">{r.subtitle}</p>
+                <p className="font-semibold text-slate-900 truncate">{r.label}</p>
+                <p className="text-xs text-slate-500 truncate mt-0.5 capitalize">{r.subtitle}</p>
               </div>
-              <span className="text-gray-400 text-sm">→</span>
+              <ChevronRight size={14} className="text-slate-300 group-hover:text-indigo-500 transition-colors shrink-0" />
             </Link>
           ))}
         </div>
       )}
 
       {!searched && (
-        <div className="text-center py-16 text-gray-400">
-          <p className="text-4xl mb-3">🔍</p>
-          <p>Type to search across all your projects.</p>
+        <div className="text-center py-20">
+          <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-3"><Layers size={24} className="text-slate-400" /></div>
+          <p className="text-slate-400 font-medium">Type to search across all your projects</p>
         </div>
       )}
     </div>

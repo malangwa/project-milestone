@@ -10,6 +10,7 @@ import '../../../data/services/attachment_service.dart';
 import '../../../data/services/material_request_service.dart';
 import '../../../data/services/procurement_service.dart';
 import '../../../data/services/session_controller.dart';
+import '../../../utils/share_helper.dart';
 import '../../widgets/loading_indicator.dart';
 
 class ProjectProcurementPage extends StatefulWidget {
@@ -1247,6 +1248,11 @@ class _RequestsTab extends StatelessWidget {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
+                    OutlinedButton.icon(
+                      onPressed: () => ShareHelper.shareMaterialRequest(request),
+                      icon: const Icon(Icons.share, size: 16),
+                      label: const Text('Share'),
+                    ),
                     if (canApprove && request.status == 'pending') ...[
                       OutlinedButton(
                         onPressed: () => onReject(request.id),

@@ -5,10 +5,11 @@ import { projectsApi } from '../../api/projects.api';
 import { materialRequestsApi } from '../../api/material-requests.api';
 import { usePermission } from '../../hooks/usePermission';
 import { printDocument, shareDocument } from '../../utils/printDocument';
+import { Plus, X, Paperclip, Printer, Share2, Trash2, CheckCircle, XCircle, Receipt } from 'lucide-react';
 
 const statusColor: Record<string, string> = {
-  pending: 'bg-yellow-100 text-yellow-700',
-  approved: 'bg-green-100 text-green-700',
+  pending: 'bg-amber-100 text-amber-700',
+  approved: 'bg-emerald-100 text-emerald-700',
   rejected: 'bg-red-100 text-red-700',
 };
 
@@ -126,108 +127,96 @@ const ExpenseList = () => {
   const remainingOwed = Math.max(0, projectBudget - committedBudget);
   const overBudget = Math.max(0, committedBudget - projectBudget);
 
+  const inp = 'w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors';
+
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-6 lg:p-8 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Expenses</h1>
-          <p className="text-gray-500 text-sm mt-1">{pending} pending · ${total.toLocaleString()} approved</p>
+          <h1 className="text-2xl font-bold text-slate-900">Expenses</h1>
+          <p className="text-slate-500 text-sm mt-1">{pending} pending · ${total.toLocaleString()} approved</p>
         </div>
         <div className="flex items-center gap-3">
           <select value={selectedProject} onChange={(e) => setSelectedProject(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            className="px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm">
             {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
           {canCreateExpense && (
             <button onClick={() => setShowModal(true)} disabled={!selectedProject}
-              className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg">
-              + Submit Expense
+              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-semibold px-5 py-2.5 rounded-xl shadow-lg shadow-indigo-200 transition-all">
+              <Plus size={16} /> Submit Expense
             </button>
           )}
         </div>
       </div>
 
       {selectedProjectInfo && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white border border-gray-200 rounded-2xl p-5">
-            <p className="text-xs text-gray-500">Project Budget</p>
-            <p className="text-xl font-bold text-gray-900 mt-1">${projectBudget.toLocaleString()}</p>
-          </div>
-          <div className="bg-white border border-gray-200 rounded-2xl p-5">
-            <p className="text-xs text-gray-500">Approved Spend</p>
-            <p className="text-xl font-bold text-green-600 mt-1">${total.toLocaleString()}</p>
-          </div>
-          <div className="bg-white border border-gray-200 rounded-2xl p-5">
-            <p className="text-xs text-gray-500">Approved Materials</p>
-            <p className="text-xl font-bold text-blue-600 mt-1">${approvedMaterials.toLocaleString()}</p>
-          </div>
-          <div className="bg-white border border-gray-200 rounded-2xl p-5">
-            <p className="text-xs text-gray-500">Owed</p>
-            <p className="text-xl font-bold text-blue-600 mt-1">${remainingOwed.toLocaleString()}</p>
-          </div>
-          <div className="bg-white border border-gray-200 rounded-2xl p-5 md:col-span-4">
-            <p className="text-xs text-gray-500">Status</p>
-            <p className={`text-xl font-bold mt-1 ${overBudget > 0 ? 'text-red-700' : 'text-green-600'}`}>
-              {overBudget > 0 ? `Budget exceeded by $${overBudget.toLocaleString()}` : 'Within budget'}
-            </p>
-          </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          {[{
+            label: 'Project Budget', value: `$${projectBudget.toLocaleString()}`, color: 'text-slate-900', bg: 'bg-white',
+          },{
+            label: 'Approved Spend', value: `$${total.toLocaleString()}`, color: 'text-emerald-600', bg: 'bg-white',
+          },{
+            label: 'Approved Materials', value: `$${approvedMaterials.toLocaleString()}`, color: 'text-indigo-600', bg: 'bg-white',
+          },{
+            label: overBudget > 0 ? 'Over Budget' : 'Remaining', value: overBudget > 0 ? `$${overBudget.toLocaleString()}` : `$${remainingOwed.toLocaleString()}`, color: overBudget > 0 ? 'text-red-600' : 'text-blue-600', bg: 'bg-white',
+          }].map((s) => (
+            <div key={s.label} className={`${s.bg} border border-slate-200 rounded-2xl p-5 shadow-sm`}>
+              <p className="text-xs text-slate-500 font-medium">{s.label}</p>
+              <p className={`text-xl font-bold mt-1 ${s.color}`}>{s.value}</p>
+            </div>
+          ))}
         </div>
       )}
 
       {loading ? (
-        <div className="space-y-2">{[...Array(4)].map((_, i) => <div key={i} className="h-16 bg-gray-100 rounded-xl animate-pulse" />)}</div>
+        <div className="space-y-3">{[...Array(4)].map((_, i) => <div key={i} className="h-16 bg-slate-100 rounded-2xl animate-pulse" />)}</div>
       ) : expenses.length === 0 ? (
-        <div className="text-center py-16 text-gray-400">No expenses for this project.</div>
+        <div className="text-center py-20">
+          <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-3"><Receipt size={22} className="text-slate-400" /></div>
+          <p className="text-slate-400 font-medium">No expenses for this project</p>
+        </div>
       ) : (
         <div className="space-y-2">
           {expenses.map((e) => {
             const receipts = expenseAttachments[e.id] || [];
             return (
-            <div key={e.id} className="bg-white border border-gray-200 rounded-xl px-5 py-4 group">
+            <div key={e.id} className="bg-white border border-slate-200 rounded-2xl px-5 py-4 group hover:border-indigo-200 hover:shadow-sm transition-all">
               <div className="flex items-center gap-4">
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-gray-900">{e.title}</p>
-                  <p className="text-xs text-gray-500 mt-0.5 capitalize">{e.category}{e.date ? ` · ${new Date(e.date).toLocaleDateString()}` : ''}</p>
+                  <p className="font-semibold text-slate-900">{e.title}</p>
+                  <p className="text-xs text-slate-500 mt-0.5 capitalize">{e.category}{e.date ? ` · ${new Date(e.date).toLocaleDateString()}` : ''}</p>
                 </div>
-                <p className="font-semibold text-gray-900">${Number(e.amount).toLocaleString()}</p>
-                <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${statusColor[e.status]}`}>{e.status}</span>
+                <p className="font-bold text-slate-900 shrink-0">${Number(e.amount).toLocaleString()}</p>
+                <span className={`text-xs font-semibold px-2.5 py-1 rounded-full capitalize shrink-0 ${statusColor[e.status]}`}>{e.status}</span>
                 {canApproveExpense && e.status === 'pending' && (
-                  <div className="flex gap-2">
-                    <button onClick={() => handleApprove(e.id)}
-                      className="text-xs px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700">Approve</button>
-                    <button onClick={() => handleReject(e.id)}
-                      className="text-xs px-3 py-1.5 bg-red-100 text-red-700 rounded-lg hover:bg-red-200">Reject</button>
+                  <div className="flex gap-1.5 shrink-0">
+                    <button onClick={() => handleApprove(e.id)} className="p-1.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg transition-colors" title="Approve"><CheckCircle size={15} /></button>
+                    <button onClick={() => handleReject(e.id)} className="p-1.5 bg-red-50 text-red-500 hover:bg-red-100 rounded-lg transition-colors" title="Reject"><XCircle size={15} /></button>
                   </div>
                 )}
-                <label className="text-xs text-blue-600 hover:text-blue-700 cursor-pointer px-2 py-1 rounded hover:bg-blue-50 flex items-center gap-1">
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
-                  Receipt
-                  <input type="file" accept="image/*,.pdf" className="hidden" onChange={(ev) => {
-                    const f = ev.target.files?.[0];
-                    if (f) handleUploadReceipt(e.id, f);
-                    ev.target.value = '';
-                  }} />
+                <label className="cursor-pointer p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors shrink-0" title="Upload receipt">
+                  <Paperclip size={14} />
+                  <input type="file" accept="image/*,.pdf" className="hidden" onChange={(ev) => { const f = ev.target.files?.[0]; if (f) handleUploadReceipt(e.id, f); ev.target.value = ''; }} />
                 </label>
-                <button
-                  onClick={() => printDocument({ title: e.title, subtitle: 'Expense', projectName: selectedProjectInfo?.name, date: e.date ? new Date(e.date).toLocaleDateString() : undefined, status: e.status, extraFields: [{ label: 'Category', value: e.category }, { label: 'Amount', value: '$' + Number(e.amount).toLocaleString() }, ...(e.notes ? [{ label: 'Notes', value: e.notes }] : [])], total: e.amount })}
-                  className="text-xs text-gray-400 hover:text-gray-700 opacity-0 group-hover:opacity-100 transition-opacity">🖨️</button>
-                <button
-                  onClick={() => shareDocument({ title: e.title, subtitle: 'Expense', projectName: selectedProjectInfo?.name, date: e.date ? new Date(e.date).toLocaleDateString() : undefined, status: e.status, extraFields: [{ label: 'Category', value: e.category }, { label: 'Amount', value: '$' + Number(e.amount).toLocaleString() }, ...(e.notes ? [{ label: 'Notes', value: e.notes }] : [])], total: e.amount })}
-                  className="text-xs text-blue-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">📤</button>
-                <button onClick={() => handleDelete(e.id)}
-                  className="text-xs text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">Delete</button>
+                <button onClick={() => printDocument({ title: e.title, subtitle: 'Expense', projectName: selectedProjectInfo?.name, date: e.date ? new Date(e.date).toLocaleDateString() : undefined, status: e.status, extraFields: [{ label: 'Category', value: e.category }, { label: 'Amount', value: '$' + Number(e.amount).toLocaleString() }, ...(e.notes ? [{ label: 'Notes', value: e.notes }] : [])], total: e.amount })}
+                  className="p-1.5 text-slate-400 hover:text-slate-700 opacity-0 group-hover:opacity-100 hover:bg-slate-100 rounded-lg transition-all shrink-0">
+                  <Printer size={14} />
+                </button>
+                <button onClick={() => shareDocument({ title: e.title, subtitle: 'Expense', projectName: selectedProjectInfo?.name, date: e.date ? new Date(e.date).toLocaleDateString() : undefined, status: e.status, extraFields: [{ label: 'Category', value: e.category }, { label: 'Amount', value: '$' + Number(e.amount).toLocaleString() }, ...(e.notes ? [{ label: 'Notes', value: e.notes }] : [])], total: e.amount })}
+                  className="p-1.5 text-slate-400 hover:text-indigo-600 opacity-0 group-hover:opacity-100 hover:bg-indigo-50 rounded-lg transition-all shrink-0">
+                  <Share2 size={14} />
+                </button>
+                <button onClick={() => handleDelete(e.id)} className="p-1.5 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 hover:bg-red-50 rounded-lg transition-all shrink-0">
+                  <Trash2 size={14} />
+                </button>
               </div>
               {receipts.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-2 pl-0">
+                <div className="mt-3 flex flex-wrap gap-2">
                   {receipts.map((a: any) => (
                     <button key={a.id} onClick={() => handleViewReceipt(a)}
-                      className="inline-flex items-center gap-1.5 text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors">
-                      {a.mimeType?.startsWith('image/') ? (
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                      ) : (
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                      )}
-                      {a.description || a.filename}
+                      className="inline-flex items-center gap-1.5 text-xs bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors">
+                      <Paperclip size={11} />{a.description || a.filename}
                     </button>
                   ))}
                 </div>
@@ -239,68 +228,58 @@ const ExpenseList = () => {
       )}
 
       {showModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
-            <div className="flex items-center justify-between p-6 border-b border-gray-100">
-              <h2 className="text-lg font-semibold">Submit Expense</h2>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md my-4">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center"><Plus size={16} className="text-white" /></div>
+                <h2 className="text-base font-semibold text-slate-900">Submit Expense</h2>
+              </div>
+              <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors"><X size={18} /></button>
             </div>
             <form onSubmit={handleCreate} className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
-                <input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="e.g. Cement purchase" />
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Title *</label>
+                <input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className={inp} placeholder="e.g. Cement purchase" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Amount ($) *</label>
-                  <input required type="number" min="0" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Amount ($) *</label>
+                  <input required type="number" min="0" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} className={inp} />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                  <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Category</label>
+                  <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className={inp}>
                     {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Date</label>
+                <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className={inp} />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                  rows={2} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Notes</label>
+                <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} className={`${inp} resize-none`} />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Receipt / Photo</label>
-                <label className="flex items-center gap-2 px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition-colors">
-                  <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                  <span className="text-sm text-gray-600">{receiptFile ? receiptFile.name : 'Attach receipt or photo...'}</span>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Receipt / Photo</label>
+                <label className="flex items-center gap-3 px-4 py-3 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/30 transition-colors">
+                  <Paperclip size={18} className="text-slate-400" />
+                  <span className="text-sm text-slate-500">{receiptFile ? receiptFile.name : 'Attach receipt or photo…'}</span>
                   <input type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => setReceiptFile(e.target.files?.[0] || null)} />
                 </label>
-                {receiptFile && (
-                  <button type="button" onClick={() => setReceiptFile(null)} className="text-xs text-red-500 mt-1 hover:text-red-700">Remove</button>
-                )}
+                {receiptFile && <button type="button" onClick={() => setReceiptFile(null)} className="text-xs text-red-500 mt-1 hover:text-red-700">Remove</button>}
               </div>
               {receiptFile && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">What is this receipt for?</label>
-                  <input value={receiptDescription} onChange={(e) => setReceiptDescription(e.target.value)}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="e.g. Payment for workers, cement purchase, site transport" />
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">What is this receipt for?</label>
+                  <input value={receiptDescription} onChange={(e) => setReceiptDescription(e.target.value)} className={inp} placeholder="e.g. Payment for workers, cement purchase" />
                 </div>
               )}
               <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowModal(false)}
-                  className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 text-sm rounded-lg hover:bg-gray-50">Cancel</button>
-                <button type="submit" disabled={saving}
-                  className="flex-1 px-4 py-2.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50">
-                  {saving ? 'Submitting...' : 'Submit'}
-                </button>
+                <button type="button" onClick={() => setShowModal(false)} className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-600 text-sm font-medium rounded-xl hover:bg-slate-50 transition-colors">Cancel</button>
+                <button type="submit" disabled={saving} className="flex-1 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl disabled:opacity-50 shadow-lg shadow-indigo-200 transition-all">{saving ? 'Submitting…' : 'Submit'}</button>
               </div>
             </form>
           </div>

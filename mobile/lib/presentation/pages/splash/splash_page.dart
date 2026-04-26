@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../app/routes.dart';
+import '../../../config/app_theme.dart';
 import '../../../data/services/project_service.dart';
 import '../../../data/services/session_controller.dart';
 
@@ -84,36 +85,56 @@ class _SplashPageState extends State<SplashPage>
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 80,
-                height: 80,
+                width: 88,
+                height: 88,
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary,
-                  borderRadius: BorderRadius.circular(20),
+                  gradient: AppTheme.primaryGradient,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.primary.withValues(alpha: 0.35),
+                      blurRadius: 24,
+                      offset: const Offset(0, 12),
+                    ),
+                  ],
                 ),
                 child: const Icon(
-                  Icons.rocket_launch,
+                  Icons.rocket_launch_rounded,
                   color: Colors.white,
-                  size: 40,
+                  size: 44,
                 ),
               ),
-              const SizedBox(height: 24),
-              Text(
+              const SizedBox(height: 28),
+              const Text(
                 'Project Milestone',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  color: AppTheme.textPrimary,
+                  letterSpacing: -0.4,
+                ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 6),
+              const Text(
+                'Build, track, deliver.',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppTheme.textMuted,
+                ),
+              ),
+              const SizedBox(height: 36),
               const SizedBox(
                 width: 28,
                 height: 28,
-                child: CircularProgressIndicator(strokeWidth: 2.5),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  valueColor: AlwaysStoppedAnimation(AppTheme.primary),
+                ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
               Text(
                 _status,
-                style:
-                    const TextStyle(fontSize: 13, color: Color(0xFF9CA3AF)),
+                style: const TextStyle(fontSize: 13, color: AppTheme.textMuted),
               ),
             ],
           ),

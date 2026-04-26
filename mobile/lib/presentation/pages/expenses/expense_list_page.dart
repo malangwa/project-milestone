@@ -10,6 +10,7 @@ import '../../../data/services/attachment_service.dart';
 import '../../../data/services/expense_service.dart';
 import '../../../data/services/project_service.dart';
 import '../../../data/services/session_controller.dart';
+import '../../../utils/share_helper.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/loading_indicator.dart';
 
@@ -664,6 +665,18 @@ class _ExpenseCardState extends State<_ExpenseCard> {
     }
   }
 
+  Future<void> _shareExpense() async {
+    try {
+      await ShareHelper.shareExpense(widget.expense);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not share: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final e = widget.expense;
@@ -701,10 +714,12 @@ class _ExpenseCardState extends State<_ExpenseCard> {
                   icon: const Icon(Icons.more_vert),
                   onSelected: (value) {
                     if (value == 'receipt') _uploadReceipt();
+                    if (value == 'share') _shareExpense();
                     if (value == 'delete') widget.onDelete();
                   },
                   itemBuilder: (ctx) => [
                     const PopupMenuItem(value: 'receipt', child: Text('Attach receipt')),
+                    const PopupMenuItem(value: 'share', child: Text('Share')),
                     const PopupMenuItem(value: 'delete', child: Text('Delete')),
                   ],
                 ),

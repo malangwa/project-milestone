@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { projectsApi } from '../../api/projects.api';
 import { milestonesApi } from '../../api/milestones.api';
 import { tasksApi } from '../../api/tasks.api';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 type CalendarItem = {
   id: string;
@@ -61,57 +62,50 @@ const Calendar = () => {
   );
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-6 lg:p-8 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Calendar</h1>
-          <p className="text-gray-500 text-sm mt-1">Milestones and task due dates</p>
+          <h1 className="text-2xl font-bold text-slate-900">Calendar</h1>
+          <p className="text-slate-500 text-sm mt-1">Milestones and task due dates</p>
         </div>
-        <div className="flex items-center gap-3">
-          <button onClick={prev} className="p-2 hover:bg-gray-100 rounded-lg text-gray-600">&larr;</button>
-          <span className="font-semibold text-gray-900 min-w-[120px] text-center">{MONTHS[month]} {year}</span>
-          <button onClick={next} className="p-2 hover:bg-gray-100 rounded-lg text-gray-600">&rarr;</button>
+        <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl shadow-sm p-1">
+          <button onClick={prev} className="p-2 hover:bg-slate-100 rounded-lg text-slate-600 transition-colors"><ChevronLeft size={16} /></button>
+          <span className="font-semibold text-slate-900 min-w-[110px] text-center text-sm">{MONTHS[month]} {year}</span>
+          <button onClick={next} className="p-2 hover:bg-slate-100 rounded-lg text-slate-600 transition-colors"><ChevronRight size={16} /></button>
         </div>
       </div>
 
       {loading ? (
-        <div className="h-96 bg-gray-100 rounded-2xl animate-pulse" />
+        <div className="h-96 bg-slate-100 rounded-2xl animate-pulse" />
       ) : (
-        <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
-          <div className="grid grid-cols-7 border-b border-gray-200">
+        <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+          <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50">
             {DAYS.map((d) => (
-              <div key={d} className="px-3 py-3 text-xs font-semibold text-gray-500 text-center">{d}</div>
+              <div key={d} className="px-3 py-3 text-xs font-semibold text-slate-500 text-center uppercase tracking-wide">{d}</div>
             ))}
           </div>
           <div className="grid grid-cols-7">
             {cells.map((day, idx) => {
               const dayItems = day ? getItemsForDay(day) : [];
               return (
-                <div
-                  key={idx}
-                  className={`min-h-[100px] p-2 border-b border-r border-gray-100 ${
-                    !day ? 'bg-gray-50/50' : ''
-                  } ${idx % 7 === 6 ? 'border-r-0' : ''}`}
-                >
+                <div key={idx}
+                  className={`min-h-[100px] p-2 border-b border-r border-slate-100 transition-colors ${
+                    !day ? 'bg-slate-50/40' : 'hover:bg-slate-50/60'
+                  } ${idx % 7 === 6 ? 'border-r-0' : ''}`}>
                   {day && (
                     <>
-                      <span className={`text-sm font-medium w-7 h-7 flex items-center justify-center rounded-full ${
-                        isToday(day) ? 'bg-blue-600 text-white' : 'text-gray-700'
+                      <span className={`text-sm font-semibold w-7 h-7 flex items-center justify-center rounded-full mb-1 ${
+                        isToday(day) ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'text-slate-700'
                       }`}>{day}</span>
-                      <div className="mt-1 space-y-0.5">
+                      <div className="space-y-0.5">
                         {dayItems.slice(0, 3).map((item) => (
-                          <div key={item.id}
-                            title={`${item.projectName}: ${item.label}`}
-                            className={`text-xs px-1.5 py-0.5 rounded truncate ${
-                              item.type === 'milestone'
-                                ? 'bg-purple-100 text-purple-700'
-                                : 'bg-blue-100 text-blue-700'
-                            }`}>
-                            {item.label}
-                          </div>
+                          <div key={item.id} title={`${item.projectName}: ${item.label}`}
+                            className={`text-xs px-1.5 py-0.5 rounded-md truncate font-medium ${
+                              item.type === 'milestone' ? 'bg-violet-100 text-violet-700' : 'bg-indigo-100 text-indigo-700'
+                            }`}>{item.label}</div>
                         ))}
                         {dayItems.length > 3 && (
-                          <div className="text-xs text-gray-400 px-1">+{dayItems.length - 3} more</div>
+                          <div className="text-xs text-slate-400 px-1">+{dayItems.length - 3} more</div>
                         )}
                       </div>
                     </>
@@ -123,14 +117,14 @@ const Calendar = () => {
         </div>
       )}
 
-      <div className="flex items-center gap-4 mt-4">
+      <div className="flex items-center gap-5 mt-4">
         <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-sm bg-purple-100 border border-purple-300" />
-          <span className="text-xs text-gray-500">Milestone</span>
+          <div className="w-3 h-3 rounded-sm bg-violet-100 border border-violet-300" />
+          <span className="text-xs text-slate-500">Milestone</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-sm bg-blue-100 border border-blue-300" />
-          <span className="text-xs text-gray-500">Task</span>
+          <div className="w-3 h-3 rounded-sm bg-indigo-100 border border-indigo-300" />
+          <span className="text-xs text-slate-500">Task</span>
         </div>
       </div>
     </div>

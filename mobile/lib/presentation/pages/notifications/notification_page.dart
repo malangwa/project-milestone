@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../config/app_theme.dart';
 import '../../../data/models/notification_model.dart';
 import '../../../data/services/notification_service.dart';
 import '../../widgets/empty_state.dart';
@@ -60,9 +61,14 @@ class _NotificationPageState extends State<NotificationPage> {
       appBar: AppBar(
         title: const Text('Notifications'),
         actions: [
-          TextButton(
-            onPressed: _markAllRead,
-            child: const Text('Mark all read'),
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: TextButton.icon(
+              onPressed: _markAllRead,
+              icon: const Icon(Icons.done_all_rounded, size: 18),
+              label: const Text('Mark all read'),
+              style: TextButton.styleFrom(foregroundColor: AppTheme.primary),
+            ),
           ),
         ],
       ),
@@ -92,9 +98,9 @@ class _NotificationPageState extends State<NotificationPage> {
             }
 
             return ListView.separated(
-              padding: const EdgeInsets.symmetric(vertical: 8),
+              padding: const EdgeInsets.all(12),
               itemCount: notifications.length,
-              separatorBuilder: (_, _) => const Divider(height: 1),
+              separatorBuilder: (_, _) => const SizedBox(height: 8),
               itemBuilder: (context, index) {
                 final notification = notifications[index];
                 String? timeStr;
@@ -105,31 +111,78 @@ class _NotificationPageState extends State<NotificationPage> {
                   }
                 }
 
-                return ListTile(
-                  tileColor: notification.isRead
-                      ? null
-                      : Theme.of(context)
-                          .colorScheme
-                          .primaryContainer
-                          .withValues(alpha: 0.2),
-                  leading: Icon(
-                    notification.isRead
-                        ? Icons.notifications_none
-                        : Icons.notifications_active,
-                    color: notification.isRead ? Colors.grey : Colors.blue,
-                  ),
-                  title: Text(
-                    notification.message,
-                    style: TextStyle(
-                      fontWeight: notification.isRead
-                          ? FontWeight.normal
-                          : FontWeight.w600,
+                final unread = !notification.isRead;
+                return Card(
+                  color: unread ? AppTheme.indigo50 : Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(
+                      color: unread ? const Color(0xFFC7D2FE) : AppTheme.cardBorder,
                     ),
                   ),
-                  subtitle: timeStr != null ? Text(timeStr) : null,
-                  onTap: notification.isRead
-                      ? null
-                      : () => _markRead(notification.id),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: unread ? () => _markRead(notification.id) : null,
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: unread ? AppTheme.primary : AppTheme.slate100,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(
+                              unread ? Icons.notifications_active_rounded : Icons.notifications_none_rounded,
+                              color: unread ? Colors.white : AppTheme.textMuted,
+                              size: 18,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  notification.message,
+                                  style: TextStyle(
+                                    fontWeight: unread ? FontWeight.w600 : FontWeight.w500,
+                                    color: AppTheme.textPrimary,
+                                    fontSize: 14,
+                                    height: 1.4,
+                                  ),
+                                ),
+                                if (timeStr != null) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    timeStr,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: AppTheme.textMuted,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          if (unread) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: const BoxDecoration(
+                                color: AppTheme.primary,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
                 );
               },
             );

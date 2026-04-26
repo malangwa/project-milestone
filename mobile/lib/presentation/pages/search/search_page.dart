@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/routes.dart';
+import '../../../config/app_theme.dart';
 import '../../../data/models/search_result_model.dart';
 import '../../../data/services/search_service.dart';
 import '../../widgets/empty_state.dart';
@@ -34,13 +35,13 @@ class _SearchPageState extends State<SearchPage> {
     }
   }
 
-  Color _typeColor(String type) {
+  (Color, Color) _typeColors(String type) {
     return switch (type) {
-      'project' => Colors.blue,
-      'task' => Colors.deepPurple,
-      'issue' => Colors.red,
-      'milestone' => Colors.green,
-      _ => Colors.grey,
+      'project' => (AppTheme.indigo50, AppTheme.primary),
+      'task' => (const Color(0xFFF5F3FF), const Color(0xFF7C3AED)),
+      'issue' => (AppTheme.red50, AppTheme.red600),
+      'milestone' => (AppTheme.emerald50, AppTheme.emerald600),
+      _ => (AppTheme.slate100, AppTheme.textSecondary),
     };
   }
 
@@ -71,9 +72,8 @@ class _SearchPageState extends State<SearchPage> {
                 child: TextField(
                   controller: _controller,
                   decoration: const InputDecoration(
-                    hintText: 'Search projects, tasks, milestones, issues...',
-                    prefixIcon: Icon(Icons.search),
-                    border: OutlineInputBorder(),
+                    hintText: 'Search projects, tasks, milestones, issues…',
+                    prefixIcon: Icon(Icons.search, size: 20, color: AppTheme.textMuted),
                   ),
                   textInputAction: TextInputAction.search,
                   onSubmitted: (_) => _search(),
@@ -82,18 +82,28 @@ class _SearchPageState extends State<SearchPage> {
               const SizedBox(width: 8),
               FilledButton(
                 onPressed: _loading ? null : _search,
-                child: Text(_loading ? '...' : 'Search'),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                ),
+                child: _loading
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Text('Search'),
               ),
             ],
           ),
         ),
         Expanded(
           child: _loading
-              ? const LoadingIndicator(message: 'Searching...')
+              ? const LoadingIndicator(message: 'Searching…')
               : !_searched
                   ? const EmptyState(
                       icon: Icons.search,
-                      title: 'Type to search across all your projects.',
+                      title: 'Type to search.',
+                      subtitle: 'Search projects, tasks, milestones and issues.',
                     )
                   : (_results == null || _results!.isEmpty)
                       ? EmptyState(
@@ -106,25 +116,63 @@ class _SearchPageState extends State<SearchPage> {
                           separatorBuilder: (_, _) => const SizedBox(height: 8),
                           itemBuilder: (context, index) {
                             final r = _results![index];
-                            final color = _typeColor(r.type);
+                            final colors = _typeColors(r.type);
                             return Card(
-                              child: ListTile(
-                                contentPadding: const EdgeInsets.all(16),
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(20),
                                 onTap: () => _openResult(r),
-                                leading: CircleAvatar(
-                                  backgroundColor: color.withValues(alpha: 0.14),
-                                  child: Text(
-                                    r.type[0].toUpperCase(),
-                                    style: TextStyle(color: color, fontWeight: FontWeight.bold),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(14),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: colors.$1,
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Text(
+                                          r.type,
+                                          style: TextStyle(
+                                            color: colors.$2,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              r.label,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                color: AppTheme.textPrimary,
+                                                fontSize: 14,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            if (r.subtitle.isNotEmpty) ...[
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                r.subtitle,
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  color: AppTheme.textMuted,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ),
+                                      const Icon(Icons.chevron_right, size: 18, color: AppTheme.textMuted),
+                                    ],
                                   ),
-                                ),
-                                title: Text(r.label),
-                                subtitle: Text(r.subtitle, style: const TextStyle(fontSize: 12)),
-                                trailing: Chip(
-                                  label: Text(r.type),
-                                  backgroundColor: color.withValues(alpha: 0.12),
-                                  labelStyle: TextStyle(color: color, fontSize: 11),
-                                  side: BorderSide.none,
                                 ),
                               ),
                             );

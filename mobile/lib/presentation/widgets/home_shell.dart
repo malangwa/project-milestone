@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app/routes.dart';
+import '../../config/app_theme.dart';
 import '../../data/services/session_controller.dart';
 import '../pages/activities/activity_list_page.dart';
 import '../pages/audit/audit_logs_page.dart';
@@ -118,8 +119,12 @@ class _HomeShellState extends State<HomeShell> {
         title: Text(destinations[_currentIndex.clamp(0, destinations.length - 1)].label),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(52),
-          child: SizedBox(
+          child: Container(
             height: 52,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              border: Border(bottom: BorderSide(color: AppTheme.slate200)),
+            ),
             child: ListView.separated(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
               scrollDirection: Axis.horizontal,
@@ -129,9 +134,16 @@ class _HomeShellState extends State<HomeShell> {
                 return ChoiceChip(
                   label: Text(item.label),
                   selected: selected,
+                  selectedColor: AppTheme.indigo50,
+                  labelStyle: TextStyle(
+                    color: selected ? AppTheme.primary : AppTheme.textSecondary,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                    fontSize: 13,
+                  ),
                   avatar: Icon(
                     selected ? item.selectedIcon : item.icon,
-                    size: 18,
+                    size: 16,
+                    color: selected ? AppTheme.primary : AppTheme.textMuted,
                   ),
                   onSelected: (_) {
                     _cachedPages.remove(index);
@@ -139,61 +151,126 @@ class _HomeShellState extends State<HomeShell> {
                   },
                 );
               },
-              separatorBuilder: (context, index) => const SizedBox(width: 8),
+              separatorBuilder: (context, index) => const SizedBox(width: 6),
               itemCount: destinations.length,
             ),
           ),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.notifications_outlined),
+            icon: const Icon(Icons.notifications_outlined, size: 22),
             tooltip: 'Notifications',
             onPressed: () =>
                 Navigator.of(context).pushNamed(AppRoutes.notifications),
           ),
+          const SizedBox(width: 4),
         ],
       ),
       drawer: Drawer(
+        backgroundColor: Colors.white,
         child: Column(
           children: [
-            UserAccountsDrawerHeader(
-              accountName: Text(user?.name ?? 'User'),
-              accountEmail: Text(user?.email ?? ''),
-              currentAccountPicture: CircleAvatar(
-                child: Text(
-                  (user?.name.isNotEmpty ?? false)
-                      ? user!.name.characters.first.toUpperCase()
-                      : 'U',
-                ),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(20, 52, 20, 24),
+              decoration: const BoxDecoration(gradient: AppTheme.drawerGradient),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [AppTheme.primary, AppTheme.gradientEnd],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white24, width: 2),
+                    ),
+                    child: Center(
+                      child: Text(
+                        (user?.name.isNotEmpty ?? false)
+                            ? user!.name.characters.first.toUpperCase()
+                            : 'U',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 20,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    user?.name ?? 'User',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    user?.email ?? '',
+                    style: const TextStyle(
+                      color: Color(0xFFA5B4FC),
+                      fontSize: 13,
+                    ),
+                  ),
+                  if ((user?.role ?? '').isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        user!.role!.toUpperCase(),
+                        style: const TextStyle(
+                          color: Color(0xFFC7D2FE),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
             Expanded(
               child: ListView(
-                padding: EdgeInsets.zero,
+                padding: const EdgeInsets.symmetric(vertical: 8),
                 children: [
                   for (var i = 0; i < destinations.length; i++)
-                    ListTile(
-                      leading: Icon(
-                        _currentIndex == i
-                            ? destinations[i].selectedIcon
-                            : destinations[i].icon,
-                      ),
-                      title: Text(destinations[i].label),
+                    _DrawerItem(
+                      icon: _currentIndex == i
+                          ? destinations[i].selectedIcon
+                          : destinations[i].icon,
+                      label: destinations[i].label,
                       selected: _currentIndex == i,
                       onTap: () => _goTo(i),
                     ),
-                  const Divider(),
-                  ListTile(
-                    leading: const Icon(Icons.notifications_outlined),
-                    title: const Text('Notifications'),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    child: Divider(color: AppTheme.slate200),
+                  ),
+                  _DrawerItem(
+                    icon: Icons.notifications_outlined,
+                    label: 'Notifications',
+                    selected: false,
                     onTap: () {
                       Navigator.of(context).pop();
                       Navigator.of(context).pushNamed(AppRoutes.notifications);
                     },
                   ),
-                  ListTile(
-                    leading: const Icon(Icons.settings_outlined),
-                    title: const Text('Settings'),
+                  _DrawerItem(
+                    icon: Icons.settings_outlined,
+                    label: 'Settings',
+                    selected: false,
                     onTap: () {
                       Navigator.of(context).pop();
                       Navigator.of(context).pushNamed(AppRoutes.settings);
@@ -202,11 +279,26 @@ class _HomeShellState extends State<HomeShell> {
                 ],
               ),
             ),
-            const Divider(height: 1),
-            ListTile(
-              leading: const Icon(Icons.logout),
-              title: const Text('Logout'),
+            const Divider(height: 1, color: AppTheme.slate200),
+            InkWell(
               onTap: _logout,
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                child: Row(
+                  children: [
+                    Icon(Icons.logout_rounded, size: 20, color: AppTheme.red600),
+                    SizedBox(width: 12),
+                    Text(
+                      'Logout',
+                      style: TextStyle(
+                        color: AppTheme.red600,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
             const SizedBox(height: 12),
           ],
@@ -249,4 +341,65 @@ class _NavItem {
   final String label;
   final IconData icon;
   final IconData selectedIcon;
+}
+
+class _DrawerItem extends StatelessWidget {
+  const _DrawerItem({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+      child: Material(
+        color: selected ? AppTheme.indigo50 : Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              children: [
+                Icon(
+                  icon,
+                  size: 20,
+                  color: selected ? AppTheme.primary : AppTheme.textSecondary,
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: selected ? AppTheme.primary : AppTheme.textPrimary,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                    fontSize: 14,
+                  ),
+                ),
+                if (selected) ...[
+                  const Spacer(),
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: const BoxDecoration(
+                      color: AppTheme.primary,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

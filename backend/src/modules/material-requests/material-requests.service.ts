@@ -55,7 +55,17 @@ export class MaterialRequestsService {
     userId: string,
     role: UserRole,
   ): Promise<MaterialRequest> {
-    await this.projectsService.findOne(projectId, userId, role);
+    const project = await this.projectsService.findOne(projectId, userId, role);
+    const allowedRoles = [
+      UserRole.ADMIN,
+      UserRole.MANAGER,
+      UserRole.ENGINEER,
+    ];
+    if (!allowedRoles.includes(role) && project.ownerId !== userId) {
+      throw new ForbiddenException(
+        'Not authorized to create material requests',
+      );
+    }
     if (!dto.items?.length) {
       throw new BadRequestException('At least one material item is required');
     }
@@ -134,6 +144,9 @@ export class MaterialRequestsService {
         'Not authorized to approve material requests',
       );
     }
+    if (request.requestedById === userId && role !== UserRole.ADMIN) {
+      throw new ForbiddenException('You cannot approve your own request');
+    }
     if (request.status !== MaterialRequestStatus.PENDING) {
       throw new ConflictException('Only pending requests can be approved');
     }
@@ -170,6 +183,9 @@ export class MaterialRequestsService {
       throw new ForbiddenException(
         'Not authorized to reject material requests',
       );
+    }
+    if (request.requestedById === userId && role !== UserRole.ADMIN) {
+      throw new ForbiddenException('You cannot reject your own request');
     }
     if (request.status !== MaterialRequestStatus.PENDING) {
       throw new ConflictException('Only pending requests can be rejected');

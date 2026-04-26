@@ -8,6 +8,11 @@ import { useAuthStore } from '../../store/auth.store';
 import type { Expense, MaterialRequest, Project } from '../../types/project.types';
 import type { PurchaseOrder } from '../../types/procurement.types';
 import api from '../../api/axios';
+import {
+  FolderKanban, CheckSquare, AlertTriangle, DollarSign,
+  TrendingUp, PauseCircle, Plus, X, Clock, ArrowUpRight,
+  PackageCheck, ShoppingCart, MapPin, Layers,
+} from 'lucide-react';
 
 type OverviewSummary = {
   tasks?: Array<{ status: string; count: string }>;
@@ -127,170 +132,218 @@ const Dashboard = () => {
   const approvedExpenses = summary?.approvedExpenses ?? 0;
 
   const stats = [
-    { label: 'Total Projects', value: projects.length, color: 'bg-blue-50 text-blue-700' },
-    { label: 'Active', value: projects.filter((p) => p.status === 'active').length, color: 'bg-green-50 text-green-700' },
-    { label: 'Tasks Done', value: `${doneTasks}/${totalTasks}`, color: 'bg-purple-50 text-purple-700' },
-    { label: 'Open Issues', value: openIssues, color: 'bg-red-50 text-red-700' },
-    { label: 'Approved Spend', value: `$${Number(approvedExpenses).toLocaleString()}`, color: 'bg-indigo-50 text-indigo-700' },
-    { label: 'On Hold', value: projects.filter((p) => p.status === 'on_hold').length, color: 'bg-yellow-50 text-yellow-700' },
+    { label: 'Total Projects', value: projects.length, icon: FolderKanban, gradient: 'from-blue-500 to-blue-600', light: 'bg-blue-50 text-blue-600' },
+    { label: 'Active Projects', value: projects.filter((p) => p.status === 'active').length, icon: TrendingUp, gradient: 'from-emerald-500 to-green-600', light: 'bg-emerald-50 text-emerald-600' },
+    { label: 'Tasks Done', value: `${doneTasks}/${totalTasks}`, icon: CheckSquare, gradient: 'from-violet-500 to-purple-600', light: 'bg-violet-50 text-violet-600' },
+    { label: 'Open Issues', value: openIssues, icon: AlertTriangle, gradient: 'from-red-500 to-rose-600', light: 'bg-red-50 text-red-600' },
+    { label: 'Approved Spend', value: `$${Number(approvedExpenses).toLocaleString()}`, icon: DollarSign, gradient: 'from-indigo-500 to-indigo-600', light: 'bg-indigo-50 text-indigo-600' },
+    { label: 'On Hold', value: projects.filter((p) => p.status === 'on_hold').length, icon: PauseCircle, gradient: 'from-amber-500 to-orange-500', light: 'bg-amber-50 text-amber-600' },
   ];
 
+  const inp = 'w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors';
+
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+      {/* Header */}
       <div className="flex items-start justify-between mb-8 flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Welcome back, {user?.name} 👋</h1>
-          <p className="text-gray-500 mt-1">Here's an overview of your projects</p>
+          <p className="text-slate-400 text-sm mb-1">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
+          <h1 className="text-2xl font-bold text-slate-900">Welcome back, {user?.name?.split(' ')[0]} 👋</h1>
+          <p className="text-slate-500 mt-1 text-sm">Here's what's happening across your projects</p>
         </div>
         {canCreate && (
           <button onClick={() => setShowNewProject(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg">
-            + New Project
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xl shadow-lg shadow-indigo-200 transition-all">
+            <Plus size={16} /> New Project
           </button>
         )}
       </div>
 
+      {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
-        {stats.map((s) => (
-          <div key={s.label} className={`rounded-xl p-5 ${s.color}`}>
-            <p className="text-3xl font-bold">{s.value}</p>
-            <p className="text-sm mt-1 font-medium">{s.label}</p>
-          </div>
-        ))}
+        {stats.map((s) => {
+          const Icon = s.icon;
+          return (
+            <div key={s.label} className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-md transition-shadow group">
+              <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${s.gradient} flex items-center justify-center mb-3 shadow-sm group-hover:scale-110 transition-transform`}>
+                <Icon size={18} className="text-white" />
+              </div>
+              <p className="text-2xl font-bold text-slate-900">{s.value}</p>
+              <p className="text-xs text-slate-500 mt-1 font-medium">{s.label}</p>
+            </div>
+          );
+        })}
       </div>
 
-      {canApprove && (
-        <div className="bg-white rounded-2xl border border-gray-200 p-6 mb-8">
-          <div className="flex items-center justify-between gap-3 mb-4">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900">Pending Approvals</h2>
-              <p className="text-sm text-gray-500 mt-1">Monitor requests that still need manager or admin action.</p>
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        {/* Left: Recent Projects */}
+        <div className="xl:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm">
+          <div className="flex items-center justify-between px-6 py-5 border-b border-slate-50">
+            <div className="flex items-center gap-2">
+              <Layers size={18} className="text-indigo-600" />
+              <h2 className="text-base font-semibold text-slate-900">Recent Projects</h2>
             </div>
-            <Link to="/reports" className="text-sm text-blue-600 hover:underline">Open reports</Link>
+            <Link to="/projects" className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 flex items-center gap-1">
+              View all <ArrowUpRight size={13} />
+            </Link>
           </div>
-
-          {approvalLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {[...Array(3)].map((_, index) => (
-                <div key={index} className="h-24 bg-gray-100 rounded-xl animate-pulse" />
-              ))}
-            </div>
-          ) : approvalSummary ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="rounded-xl border border-amber-100 bg-amber-50 p-5">
-                <p className="text-sm font-medium text-amber-800">Expenses</p>
-                <p className="text-2xl font-bold text-amber-900 mt-2">{approvalSummary.pendingExpenses}</p>
-                <p className="text-xs text-amber-700 mt-1">${approvalSummary.pendingExpenseValue.toLocaleString()} waiting</p>
-              </div>
-              <div className="rounded-xl border border-blue-100 bg-blue-50 p-5">
-                <p className="text-sm font-medium text-blue-800">Material Requests</p>
-                <p className="text-2xl font-bold text-blue-900 mt-2">{approvalSummary.pendingMaterials}</p>
-                <p className="text-xs text-blue-700 mt-1">${approvalSummary.pendingMaterialValue.toLocaleString()} requested</p>
-              </div>
-              <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-5">
-                <p className="text-sm font-medium text-indigo-800">Purchase Orders</p>
-                <p className="text-2xl font-bold text-indigo-900 mt-2">{approvalSummary.pendingOrders}</p>
-                <p className="text-xs text-indigo-700 mt-1">${approvalSummary.pendingOrderValue.toLocaleString()} pending approval</p>
-              </div>
-            </div>
-          ) : (
-            <div className="text-sm text-gray-500">No pending approvals right now.</div>
-          )}
-        </div>
-      )}
-
-      <div className="bg-white rounded-2xl border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">Recent Projects</h2>
-          <Link to="/projects" className="text-sm text-blue-600 hover:underline">View all</Link>
-        </div>
-
-        {loading ? (
-          <div className="space-y-3">{[...Array(3)].map((_, i) => (
-            <div key={i} className="h-14 bg-gray-100 rounded-lg animate-pulse" />
-          ))}</div>
-        ) : projects.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-gray-400 text-sm">No projects yet.</p>
-            <Link to="/projects" className="mt-3 inline-block text-sm text-blue-600 hover:underline">Create your first project</Link>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {projects.slice(0, 5).map((p) => (
-              <Link key={p.id} to={`/projects/${p.id}`}
-                className="flex items-center justify-between p-4 rounded-xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50/30 transition-colors">
-                <div>
-                  <p className="font-medium text-gray-900">{p.name}</p>
-                  <p className="text-xs text-gray-500 mt-0.5 capitalize">{p.industry}</p>
-                  {p.location && <p className="text-xs text-gray-400 mt-0.5">{p.location}</p>}
+          <div className="p-4">
+            {loading ? (
+              <div className="space-y-3">{[...Array(4)].map((_, i) => (
+                <div key={i} className="h-16 bg-slate-100 rounded-xl animate-pulse" />
+              ))}</div>
+            ) : projects.length === 0 ? (
+              <div className="text-center py-14">
+                <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                  <FolderKanban size={24} className="text-slate-400" />
                 </div>
-                <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${statusColor[p.status] || 'bg-gray-100 text-gray-600'}`}>
-                  {p.status.replace('_', ' ')}
-                </span>
+                <p className="text-slate-400 text-sm font-medium">No projects yet</p>
+                <button onClick={() => setShowNewProject(true)} className="mt-3 text-sm text-indigo-600 hover:text-indigo-700 font-semibold">Create your first project →</button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {projects.slice(0, 6).map((p) => (
+                  <Link key={p.id} to={`/projects/${p.id}`}
+                    className="flex items-center justify-between px-4 py-3.5 rounded-xl border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/40 transition-all group">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-100 to-blue-100 flex items-center justify-center shrink-0">
+                        <span className="text-indigo-700 font-bold text-sm">{p.name.charAt(0).toUpperCase()}</span>
+                      </div>
+                      <div>
+                        <p className="font-semibold text-slate-800 text-sm group-hover:text-indigo-700 transition-colors">{p.name}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[11px] text-slate-400 capitalize">{p.industry}</span>
+                          {p.location && <><span className="text-slate-300">·</span><span className="text-[11px] text-slate-400 flex items-center gap-0.5"><MapPin size={9}/>{p.location}</span></>}
+                        </div>
+                      </div>
+                    </div>
+                    <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full capitalize ${statusColor[p.status] || 'bg-slate-100 text-slate-600'}`}>
+                      {p.status.replace('_', ' ')}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right: Pending Approvals */}
+        {canApprove && (
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-slate-50">
+              <div className="flex items-center gap-2">
+                <Clock size={18} className="text-amber-500" />
+                <h2 className="text-base font-semibold text-slate-900">Pending Approvals</h2>
+              </div>
+              <Link to="/reports" className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 flex items-center gap-1">
+                Reports <ArrowUpRight size={13} />
               </Link>
-            ))}
+            </div>
+            <div className="p-4 space-y-3">
+              {approvalLoading ? (
+                [...Array(3)].map((_, i) => <div key={i} className="h-20 bg-slate-100 rounded-xl animate-pulse" />)
+              ) : approvalSummary ? (
+                [{
+                  icon: DollarSign, label: 'Expenses', count: approvalSummary.pendingExpenses,
+                  value: approvalSummary.pendingExpenseValue, color: 'from-amber-500 to-orange-500', bg: 'bg-amber-50', text: 'text-amber-700', sub: 'waiting for approval',
+                },{
+                  icon: PackageCheck, label: 'Material Requests', count: approvalSummary.pendingMaterials,
+                  value: approvalSummary.pendingMaterialValue, color: 'from-blue-500 to-indigo-500', bg: 'bg-blue-50', text: 'text-blue-700', sub: 'items requested',
+                },{
+                  icon: ShoppingCart, label: 'Purchase Orders', count: approvalSummary.pendingOrders,
+                  value: approvalSummary.pendingOrderValue, color: 'from-violet-500 to-purple-600', bg: 'bg-violet-50', text: 'text-violet-700', sub: 'pending approval',
+                }].map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <div key={item.label} className={`${item.bg} rounded-xl p-4`}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${item.color} flex items-center justify-center`}>
+                            <Icon size={15} className="text-white" />
+                          </div>
+                          <span className={`text-xs font-semibold ${item.text}`}>{item.label}</span>
+                        </div>
+                        <span className={`text-2xl font-bold ${item.text}`}>{item.count}</span>
+                      </div>
+                      <p className={`text-xs mt-2 ${item.text} opacity-80`}>${item.value.toLocaleString()} {item.sub}</p>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="text-center py-10">
+                  <CheckSquare size={28} className="text-slate-300 mx-auto mb-2" />
+                  <p className="text-sm text-slate-400">No pending approvals</p>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
+
+      {/* New Project Modal */}
       {showNewProject && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
-            <div className="flex items-center justify-between p-6 border-b border-gray-100">
-              <h2 className="text-lg font-semibold text-gray-900">New Project</h2>
-              <button onClick={() => setShowNewProject(false)} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center">
+                  <Plus size={16} className="text-white" />
+                </div>
+                <h2 className="text-base font-semibold text-slate-900">New Project</h2>
+              </div>
+              <button onClick={() => setShowNewProject(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors">
+                <X size={18} />
+              </button>
             </div>
             <form onSubmit={handleCreateProject} className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Project Name *</label>
                 <input required value={newForm.name}
                   onChange={(e) => setNewForm({ ...newForm, name: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="e.g. Office Renovation" />
+                  className={inp} placeholder="e.g. Office Renovation" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Description</label>
                 <textarea value={newForm.description}
                   onChange={(e) => setNewForm({ ...newForm, description: e.target.value })}
-                  rows={2} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+                  rows={2} className={`${inp} resize-none`} />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Location</label>
                 <input value={newForm.location}
                   onChange={(e) => setNewForm({ ...newForm, location: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="e.g. Lagos, Site A" />
+                  className={inp} placeholder="e.g. Lagos, Site A" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Industry</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Industry</label>
                   <select value={newForm.industry}
                     onChange={(e) => setNewForm({ ...newForm, industry: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    className={inp}>
                     {['construction','telecom','software','other'].map((i) => <option key={i} value={i}>{i}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Status</label>
                   <select value={newForm.status}
                     onChange={(e) => setNewForm({ ...newForm, status: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    className={inp}>
                     {['planning','active','on_hold'].map((s) => <option key={s} value={s}>{s.replace('_',' ')}</option>)}
                   </select>
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Budget ($)</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Budget ($)</label>
                 <input type="number" min="0" value={newForm.budget}
                   onChange={(e) => setNewForm({ ...newForm, budget: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Optional" />
+                  className={inp} placeholder="Optional" />
               </div>
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowNewProject(false)}
-                  className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 text-sm rounded-lg hover:bg-gray-50">Cancel</button>
+                  className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-600 text-sm font-medium rounded-xl hover:bg-slate-50 transition-colors">Cancel</button>
                 <button type="submit" disabled={creating}
-                  className="flex-1 px-4 py-2.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50">
-                  {creating ? 'Creating...' : 'Create Project'}
+                  className="flex-1 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl disabled:opacity-50 shadow-lg shadow-indigo-200 transition-all">
+                  {creating ? 'Creating…' : 'Create Project'}
                 </button>
               </div>
             </form>
