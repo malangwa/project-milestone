@@ -3,8 +3,10 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Optional,
 } from '@nestjs/common';
+import { UserRole } from '../users/entities/user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Task, TaskMaterialAssignment } from './entities/task.entity';
@@ -116,7 +118,13 @@ export class TasksService {
     return resolved;
   }
 
-  async create(data: any, userId?: string): Promise<Task> {
+  async create(data: any, userId?: string, userRole?: UserRole): Promise<Task> {
+    if (
+      userRole === UserRole.VIEWER ||
+      userRole === UserRole.CLIENT
+    ) {
+      throw new ForbiddenException('Your role is not allowed to create tasks');
+    }
     const { materials, ...taskData } = data;
     const task = await this.repo.save(
       this.repo.create(taskData) as unknown as Task,
@@ -155,8 +163,15 @@ export class TasksService {
     return t;
   }
 
-  async update(id: string, data: any, userId?: string): Promise<Task> {
+  async update(id: string, data: any, userId?: string, userRole?: UserRole): Promise<Task> {
     const existing = await this.findOne(id);
+    if (
+      userRole !== UserRole.ADMIN &&
+      userRole !== UserRole.MANAGER &&
+      existing.createdById !== userId
+    ) {
+      throw new ForbiddenException('Not authorized to update this task');
+    }
     const hasMaterials = Object.prototype.hasOwnProperty.call(
       data,
       'materials',
@@ -213,8 +228,15 @@ export class TasksService {
     return updated;
   }
 
-  async remove(id: string, userId?: string): Promise<void> {
+  async remove(id: string, userId?: string, userRole?: UserRole): Promise<void> {
     const t = await this.findOne(id);
+    if (
+      userRole !== UserRole.ADMIN &&
+      userRole !== UserRole.MANAGER &&
+      t.createdById !== userId
+    ) {
+      throw new ForbiddenException('Not authorized to delete this task');
+    }
     const materials = this.normalizeMaterials(t.materials);
     if (materials.length > 0) {
       await this.applyMaterials(

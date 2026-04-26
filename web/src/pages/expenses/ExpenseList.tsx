@@ -3,7 +3,7 @@ import { attachmentsApi } from '../../api/attachments.api';
 import { expensesApi } from '../../api/expenses.api';
 import { projectsApi } from '../../api/projects.api';
 import { materialRequestsApi } from '../../api/material-requests.api';
-import { useAuthStore } from '../../store/auth.store';
+import { usePermission } from '../../hooks/usePermission';
 
 const statusColor: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-700',
@@ -14,8 +14,7 @@ const statusColor: Record<string, string> = {
 const CATEGORIES = ['labor', 'material', 'equipment', 'travel', 'other'];
 
 const ExpenseList = () => {
-  const { user } = useAuthStore();
-  const canApprove = user?.role === 'admin' || user?.role === 'manager';
+  const { canApproveExpense, canCreateExpense } = usePermission();
   const [projects, setProjects] = useState<any[]>([]);
   const [selectedProject, setSelectedProject] = useState('');
   const [selectedProjectInfo, setSelectedProjectInfo] = useState<any>(null);
@@ -138,10 +137,12 @@ const ExpenseList = () => {
             className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
             {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
-          <button onClick={() => setShowModal(true)} disabled={!selectedProject}
-            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg">
-            + Submit Expense
-          </button>
+          {canCreateExpense && (
+            <button onClick={() => setShowModal(true)} disabled={!selectedProject}
+              className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg">
+              + Submit Expense
+            </button>
+          )}
         </div>
       </div>
 
@@ -189,7 +190,7 @@ const ExpenseList = () => {
                 </div>
                 <p className="font-semibold text-gray-900">${Number(e.amount).toLocaleString()}</p>
                 <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${statusColor[e.status]}`}>{e.status}</span>
-                {canApprove && e.status === 'pending' && (
+                {canApproveExpense && e.status === 'pending' && (
                   <div className="flex gap-2">
                     <button onClick={() => handleApprove(e.id)}
                       className="text-xs px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700">Approve</button>

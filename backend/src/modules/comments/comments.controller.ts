@@ -5,6 +5,7 @@ import {
   Body,
   Param,
   Delete,
+  Patch,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -17,6 +18,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { User } from '../users/entities/user.entity';
 import { CommentEntityType } from './entities/comment.entity';
 import { CreateCommentDto } from './dto/create-comment.dto';
+import { UpdateCommentDto } from './dto/update-comment.dto';
 
 @ApiTags('comments')
 @ApiBearerAuth()
@@ -38,6 +40,16 @@ export class CommentsController {
     @Query('entityId') entityId: string,
   ) {
     return this.commentsService.findByEntity(entityType, entityId);
+  }
+
+  @Patch(':id')
+  @ApiOperation({ summary: 'Update a comment' })
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateCommentDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.commentsService.update(id, dto, user.id);
   }
 
   @Delete(':id')

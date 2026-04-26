@@ -13,11 +13,13 @@ import {
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { ProjectsService } from './projects.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { CreateProjectMemberDto } from './dto/create-project-member.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
-import { User } from '../users/entities/user.entity';
+import { User, UserRole } from '../users/entities/user.entity';
 
 @ApiTags('projects')
 @ApiBearerAuth()
@@ -27,7 +29,9 @@ export class ProjectsController {
   constructor(private readonly projectsService: ProjectsService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Create a new project' })
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @ApiOperation({ summary: 'Create a new project (admin/manager only)' })
   create(@Body() dto: CreateProjectDto, @CurrentUser() user: User) {
     return this.projectsService.create(dto, user.id);
   }

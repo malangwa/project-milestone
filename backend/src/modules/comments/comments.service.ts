@@ -32,6 +32,15 @@ export class CommentsService {
     });
   }
 
+  async update(id: string, dto: any, userId: string): Promise<Comment> {
+    const comment = await this.repo.findOne({ where: { id } });
+    if (!comment) throw new NotFoundException('Comment not found');
+    if (comment.authorId !== userId)
+      throw new NotFoundException('Not your comment');
+    Object.assign(comment, dto);
+    return this.repo.save(comment);
+  }
+
   async remove(id: string, userId: string): Promise<void> {
     const comment = await this.repo.findOne({ where: { id } });
     if (!comment) throw new NotFoundException('Comment not found');

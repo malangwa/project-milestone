@@ -134,14 +134,24 @@ export class ExpensesService {
     return updated;
   }
 
-  async update(id: string, data: any): Promise<Expense> {
-    await this.findOne(id);
+  async update(id: string, data: any, userId?: string, role?: UserRole): Promise<Expense> {
+    const expense = await this.findOne(id);
+    const isAdminOrManager = role === UserRole.ADMIN || role === UserRole.MANAGER;
+    const isOwnPending = expense.submittedById === userId && expense.status === ExpenseStatus.PENDING;
+    if (!isAdminOrManager && !isOwnPending) {
+      throw new ForbiddenException('Not authorized to update this expense');
+    }
     await this.repo.update(id, data);
     return this.findOne(id);
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(id: string, userId?: string, role?: UserRole): Promise<void> {
     const e = await this.findOne(id);
+    const isAdminOrManager = role === UserRole.ADMIN || role === UserRole.MANAGER;
+    const isOwnPending = e.submittedById === userId && e.status === ExpenseStatus.PENDING;
+    if (!isAdminOrManager && !isOwnPending) {
+      throw new ForbiddenException('Not authorized to delete this expense');
+    }
     await this.repo.remove(e);
   }
 }

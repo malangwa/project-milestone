@@ -28,7 +28,7 @@ export class TasksController {
   @Post()
   @ApiOperation({ summary: 'Create a task' })
   create(@Body() dto: CreateTaskDto, @CurrentUser() user: User) {
-    return this.tasksService.create({ ...dto, createdById: user.id }, user.id);
+    return this.tasksService.create({ ...dto, createdById: user.id }, user.id, user.role);
   }
 
   @Get('project/:projectId')
@@ -52,12 +52,12 @@ export class TasksController {
     @Body() dto: UpdateTaskDto,
     @CurrentUser() user: User,
   ) {
-    return this.tasksService.update(id, dto, user.id);
+    return this.tasksService.update(id, dto, user.id, user.role);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(@Param('id') id: string, @CurrentUser() user: User) {
-    return this.tasksService.remove(id, user.id);
+    return this.tasksService.remove(id, user.id, user.role);
   }
 }

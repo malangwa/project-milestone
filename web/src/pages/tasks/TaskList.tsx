@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { usePermission } from '../../hooks/usePermission';
 import { attachmentsApi } from '../../api/attachments.api';
 import { tasksApi } from '../../api/tasks.api';
 import { projectsApi } from '../../api/projects.api';
@@ -17,6 +18,7 @@ const STATUSES = ['todo', 'in_progress', 'review', 'done', 'blocked'];
 const PRIORITIES = ['low', 'medium', 'high', 'critical'];
 
 const TaskList = () => {
+  const { canCreateTask } = usePermission();
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState('');
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -197,10 +199,12 @@ const TaskList = () => {
             className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
             {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
-          <button onClick={() => setShowModal(true)} disabled={!selectedProject}
-            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg">
-            + New Task
-          </button>
+          {canCreateTask && (
+            <button onClick={() => setShowModal(true)} disabled={!selectedProject}
+              className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg">
+              + New Task
+            </button>
+          )}
         </div>
       </div>
 

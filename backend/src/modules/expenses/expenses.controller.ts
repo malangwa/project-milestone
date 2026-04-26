@@ -43,8 +43,8 @@ export class ExpensesController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateExpenseDto) {
-    return this.expensesService.update(id, dto);
+  update(@Param('id') id: string, @Body() dto: UpdateExpenseDto, @CurrentUser() user: User) {
+    return this.expensesService.update(id, dto, user.id, user.role);
   }
 
   @Patch(':id/approve')
@@ -61,7 +61,7 @@ export class ExpensesController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param('id') id: string) {
-    return this.expensesService.remove(id);
+  remove(@Param('id') id: string, @CurrentUser() user: User) {
+    return this.expensesService.remove(id, user.id, user.role);
   }
 }
