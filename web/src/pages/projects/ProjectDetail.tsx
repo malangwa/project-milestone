@@ -14,6 +14,7 @@ import type { StockItem } from '../../types/procurement.types';
 import { useAuthStore } from '../../store/auth.store';
 import { attachmentsApi } from '../../api/attachments.api';
 import api from '../../api/axios';
+import { printDocument, shareDocument } from '../../utils/printDocument';
 
 const statusColor: Record<string, string> = {
   planning: 'bg-gray-100 text-gray-700',
@@ -1095,6 +1096,45 @@ const ProjectDetail = () => {
                         <p className="text-sm font-semibold text-gray-900">${Number(item.estimatedCost).toLocaleString()}</p>
                       </div>
                     ))}
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => printDocument({
+                        title: request.title,
+                        subtitle: 'Material Request',
+                        projectName: project?.name,
+                        requestedBy: request.requestedBy?.name ?? request.requestedById,
+                        date: new Date(request.createdAt).toLocaleDateString(),
+                        status: request.status,
+                        purpose: request.purpose ?? undefined,
+                        notes: request.notes,
+                        items: request.items.map((i) => ({ name: i.name, quantity: i.quantity, unit: i.unit, estimatedCost: i.estimatedCost, notes: i.notes })),
+                        total: request.requestedAmount,
+                      })}
+                      className="px-3 py-1.5 text-xs font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 inline-flex items-center gap-1"
+                    >
+                      🖨️ Print
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => shareDocument({
+                        title: request.title,
+                        subtitle: 'Material Request',
+                        projectName: project?.name,
+                        requestedBy: request.requestedBy?.name ?? request.requestedById,
+                        date: new Date(request.createdAt).toLocaleDateString(),
+                        status: request.status,
+                        purpose: request.purpose ?? undefined,
+                        notes: request.notes,
+                        items: request.items.map((i) => ({ name: i.name, quantity: i.quantity, unit: i.unit, estimatedCost: i.estimatedCost, notes: i.notes })),
+                        total: request.requestedAmount,
+                      })}
+                      className="px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 inline-flex items-center gap-1"
+                    >
+                      📤 Share
+                    </button>
                   </div>
 
                   {canEdit && request.status === 'approved' && (

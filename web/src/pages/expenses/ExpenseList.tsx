@@ -4,6 +4,7 @@ import { expensesApi } from '../../api/expenses.api';
 import { projectsApi } from '../../api/projects.api';
 import { materialRequestsApi } from '../../api/material-requests.api';
 import { usePermission } from '../../hooks/usePermission';
+import { printDocument, shareDocument } from '../../utils/printDocument';
 
 const statusColor: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-700',
@@ -207,6 +208,12 @@ const ExpenseList = () => {
                     ev.target.value = '';
                   }} />
                 </label>
+                <button
+                  onClick={() => printDocument({ title: e.title, subtitle: 'Expense', projectName: selectedProjectInfo?.name, date: e.date ? new Date(e.date).toLocaleDateString() : undefined, status: e.status, extraFields: [{ label: 'Category', value: e.category }, { label: 'Amount', value: '$' + Number(e.amount).toLocaleString() }, ...(e.notes ? [{ label: 'Notes', value: e.notes }] : [])], total: e.amount })}
+                  className="text-xs text-gray-400 hover:text-gray-700 opacity-0 group-hover:opacity-100 transition-opacity">🖨️</button>
+                <button
+                  onClick={() => shareDocument({ title: e.title, subtitle: 'Expense', projectName: selectedProjectInfo?.name, date: e.date ? new Date(e.date).toLocaleDateString() : undefined, status: e.status, extraFields: [{ label: 'Category', value: e.category }, { label: 'Amount', value: '$' + Number(e.amount).toLocaleString() }, ...(e.notes ? [{ label: 'Notes', value: e.notes }] : [])], total: e.amount })}
+                  className="text-xs text-blue-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">📤</button>
                 <button onClick={() => handleDelete(e.id)}
                   className="text-xs text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">Delete</button>
               </div>
