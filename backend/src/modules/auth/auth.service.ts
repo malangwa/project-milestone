@@ -10,6 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users/users.service';
 import { CreateUserDto } from '../users/dto/create-user.dto';
+import { UserRole } from '../users/entities/user.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { LoginDto } from './dto/login.dto';
 
@@ -24,7 +25,10 @@ export class AuthService {
   ) {}
 
   async register(dto: CreateUserDto) {
-    const user = await this.usersService.create(dto);
+    // Self-registration always creates an owner (MANAGER).
+    // Ignore any role the client sends to prevent privilege escalation.
+    const safeDto: CreateUserDto = { ...dto, role: UserRole.MANAGER };
+    const user = await this.usersService.create(safeDto);
     const tokens = await this.generateTokens(user.id, user.email, user.role);
     await this.saveRefreshToken(user.id, tokens.refreshToken);
     return { user, ...tokens };
