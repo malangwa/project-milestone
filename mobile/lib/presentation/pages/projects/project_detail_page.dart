@@ -17,6 +17,8 @@ import '../../../data/services/project_service.dart';
 import '../../../data/services/report_service.dart';
 import '../../../data/services/session_controller.dart';
 import '../../../data/services/task_service.dart';
+import '../../../data/services/user_management_service.dart';
+import '../../../data/models/user_model.dart';
 import 'project_procurement_page.dart';
 import '../../widgets/loading_indicator.dart';
 
@@ -82,65 +84,136 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
     return role == 'admin' || role == 'manager';
   }
 
-  Future<void> _showAddMemberDialog() async {
-    final emailCtl = TextEditingController();
-    String role = 'engineer';
+  Future<void> _showAddMemberDialog(List<ProjectMemberModel> currentMembers) async {
     const roles = ['engineer', 'viewer', 'client', 'subcontractor', 'manager'];
+    String role = 'engineer';
+    String query = '';
 
-    final confirmed = await showDialog<bool>(
+    // Load candidates (users the owner can see, excluding self + existing members)
+    List<UserModel> allUsers;
+    try {
+      allUsers = await UserManagementService.instance.getAll();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load users: $e')),
+      );
+      return;
+    }
+
+    final myId = SessionController.instance.currentUser?.id;
+    final existingIds = currentMembers.map((m) => m.userId).toSet();
+    final candidates = allUsers
+        .where((u) => u.id != myId && !existingIds.contains(u.id))
+        .toList();
+
+    if (!mounted) return;
+    final result = await showDialog<_AddMemberResult>(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('Add Team Member'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: emailCtl,
-                decoration: const InputDecoration(
-                  labelText: 'User email *',
-                  hintText: 'user@example.com',
-                ),
-                keyboardType: TextInputType.emailAddress,
+        builder: (ctx, setDialogState) {
+          final filtered = query.isEmpty
+              ? candidates
+              : candidates.where((u) {
+                  final q = query.toLowerCase();
+                  return u.name.toLowerCase().contains(q) ||
+                      u.email.toLowerCase().contains(q);
+                }).toList();
+          return AlertDialog(
+            title: const Text('Add Team Member'),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DropdownButtonFormField<String>(
+                    value: role,
+                    decoration: const InputDecoration(labelText: 'Project role'),
+                    items: roles
+                        .map((r) => DropdownMenuItem(value: r, child: Text(r)))
+                        .toList(),
+                    onChanged: (v) => setDialogState(() => role = v ?? 'engineer'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    decoration: const InputDecoration(
+                      labelText: 'Search',
+                      prefixIcon: Icon(Icons.search, size: 20),
+                      isDense: true,
+                    ),
+                    onChanged: (v) => setDialogState(() => query = v),
+                  ),
+                  const SizedBox(height: 12),
+                  if (candidates.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Text(
+                        'No available users. Create users in the Users page first.',
+                        style: TextStyle(color: Colors.grey),
+                        textAlign: TextAlign.center,
+                      ),
+                    )
+                  else
+                    SizedBox(
+                      height: 300,
+                      child: filtered.isEmpty
+                          ? const Center(child: Text('No match'))
+                          : ListView.separated(
+                              shrinkWrap: true,
+                              itemCount: filtered.length,
+                              separatorBuilder: (_, _) => const Divider(height: 1),
+                              itemBuilder: (_, i) {
+                                final u = filtered[i];
+                                return ListTile(
+                                  dense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                  leading: CircleAvatar(
+                                    radius: 16,
+                                    child: Text(
+                                      u.name.isNotEmpty
+                                          ? u.name[0].toUpperCase()
+                                          : 'U',
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                  ),
+                                  title: Text(u.name),
+                                  subtitle: Text(
+                                    u.email,
+                                    style: const TextStyle(fontSize: 11),
+                                  ),
+                                  trailing: Text(
+                                    u.role ?? '',
+                                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                  ),
+                                  onTap: () => Navigator.pop(
+                                    ctx,
+                                    _AddMemberResult(email: u.email, role: role),
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+                ],
               ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                value: role,
-                decoration: const InputDecoration(labelText: 'Project role'),
-                items: roles
-                    .map((r) => DropdownMenuItem(value: r, child: Text(r)))
-                    .toList(),
-                onChanged: (v) => setDialogState(() => role = v ?? 'engineer'),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'User must already have an account. Create one in the Users page first.',
-                style: TextStyle(fontSize: 11, color: Colors.grey),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
               ),
             ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Add'),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
 
-    if (confirmed != true) return;
-    if (emailCtl.text.trim().isEmpty) return;
+    if (result == null) return;
 
     try {
       await ProjectService.instance.addMember(
         widget.projectId,
-        emailCtl.text.trim(),
-        role: role,
+        result.email,
+        role: result.role,
       );
       if (!mounted) return;
       setState(() => _future = _load());
@@ -434,7 +507,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
                   title: 'Team Members',
                   trailing: _canManageMembers()
                       ? TextButton.icon(
-                          onPressed: _showAddMemberDialog,
+                          onPressed: () => _showAddMemberDialog(data.members),
                           icon: const Icon(Icons.person_add, size: 18),
                           label: const Text('Add'),
                         )
@@ -1473,6 +1546,12 @@ class _InfoChip extends StatelessWidget {
       ),
     );
   }
+}
+
+class _AddMemberResult {
+  const _AddMemberResult({required this.email, required this.role});
+  final String email;
+  final String role;
 }
 
 class _SectionCard extends StatelessWidget {
