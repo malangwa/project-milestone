@@ -14,6 +14,10 @@ import {
   PurchaseOrderStatus,
 } from '../purchase-orders/entities/purchase-order.entity';
 import { InventoryService } from '../inventory/inventory.service';
+import {
+  MaterialRequest,
+  MaterialRequestStatus,
+} from '../material-requests/entities/material-request.entity';
 import { CreateGoodsReceiptDto } from './dto/create-goods-receipt.dto';
 import {
   GoodsReceipt,
@@ -31,6 +35,8 @@ export class GoodsReceiptsService {
     private readonly receiptItemsRepo: Repository<GoodsReceiptItem>,
     @InjectRepository(PurchaseOrder)
     private readonly ordersRepo: Repository<PurchaseOrder>,
+    @InjectRepository(MaterialRequest)
+    private readonly requestsRepo: Repository<MaterialRequest>,
     private readonly projectsService: ProjectsService,
     private readonly inventoryService: InventoryService,
   ) {}
@@ -133,6 +139,17 @@ export class GoodsReceiptsService {
           ? PurchaseOrderStatus.RECEIVED
           : PurchaseOrderStatus.PARTIALLY_RECEIVED,
     });
+
+    // Cascade: if this PO is linked to a material request and the order is now
+    // fully received, mark the request as RECEIVED.
+    if (
+      order.materialRequestId &&
+      saved.status === GoodsReceiptStatus.COMPLETED
+    ) {
+      await this.requestsRepo.update(order.materialRequestId, {
+        status: MaterialRequestStatus.RECEIVED,
+      });
+    }
 
     return this.findOne(saved.id, userId, role);
   }

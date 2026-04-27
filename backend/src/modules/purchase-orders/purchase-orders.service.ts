@@ -10,7 +10,10 @@ import { Repository } from 'typeorm';
 import { ProjectsService } from '../projects/projects.service';
 import { Project } from '../projects/entities/project.entity';
 import { UserRole } from '../users/entities/user.entity';
-import { MaterialRequest } from '../material-requests/entities/material-request.entity';
+import {
+  MaterialRequest,
+  MaterialRequestStatus,
+} from '../material-requests/entities/material-request.entity';
 import { Supplier } from '../suppliers/entities/supplier.entity';
 import { CreatePurchaseOrderDto } from './dto/create-purchase-order.dto';
 import {
@@ -101,6 +104,14 @@ export class PurchaseOrdersService {
           'Material request does not belong to this project',
         );
       }
+      if (
+        request.status !== MaterialRequestStatus.APPROVED &&
+        request.status !== MaterialRequestStatus.PENDING
+      ) {
+        throw new ConflictException(
+          `Material request is already ${request.status}; cannot create another order from it`,
+        );
+      }
     }
 
     const items = this.normalizeItems(dto.items);
@@ -126,6 +137,14 @@ export class PurchaseOrdersService {
     } as any);
 
     const created = await this.ordersRepo.save(order as any);
+
+    // Mark the linked material request as ORDERED
+    if (created.materialRequestId) {
+      await this.requestsRepo.update(created.materialRequestId, {
+        status: MaterialRequestStatus.ORDERED,
+      });
+    }
+
     await this.auditLogsService.log({
       userId,
       action: 'create',

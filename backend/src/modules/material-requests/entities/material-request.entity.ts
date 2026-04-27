@@ -16,6 +16,8 @@ export enum MaterialRequestStatus {
   PENDING = 'pending',
   APPROVED = 'approved',
   REJECTED = 'rejected',
+  ORDERED = 'ordered',
+  RECEIVED = 'received',
 }
 
 @Entity('material_requests')

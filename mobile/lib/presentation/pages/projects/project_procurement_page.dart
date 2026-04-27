@@ -10,6 +10,7 @@ import '../../../data/services/attachment_service.dart';
 import '../../../data/services/material_request_service.dart';
 import '../../../data/services/procurement_service.dart';
 import '../../../data/services/session_controller.dart';
+import '../../../l10n/app_i18n.dart';
 import '../../../utils/share_helper.dart';
 import '../../widgets/loading_indicator.dart';
 
@@ -1194,6 +1195,8 @@ class _RequestsTab extends StatelessWidget {
         final request = requests[index];
         final statusColor = switch (request.status) {
           'approved' => Colors.green,
+          'ordered' => Colors.blue,
+          'received' => const Color(0xFF4F46E5), // indigo
           'rejected' => Colors.red,
           _ => Colors.orange,
         };
@@ -1251,28 +1254,45 @@ class _RequestsTab extends StatelessWidget {
                     OutlinedButton.icon(
                       onPressed: () => ShareHelper.shareMaterialRequest(request),
                       icon: const Icon(Icons.share, size: 16),
-                      label: const Text('Share'),
+                      label: Text('action.share'.tr),
                     ),
                     if (canApprove && request.status == 'pending') ...[
                       OutlinedButton(
                         onPressed: () => onReject(request.id),
-                        child: const Text('Reject'),
+                        child: Text('action.reject'.tr),
                       ),
                       FilledButton(
                         onPressed: () => onApprove(request.id),
-                        child: const Text('Approve'),
+                        child: Text('action.approve'.tr),
                       ),
                     ],
-                    if (canEdit && request.status == 'approved') ...[
-                      OutlinedButton(
-                        onPressed: () => onUploadReceipt(request.id),
-                        child: const Text('Upload Receipt'),
-                      ),
-                      FilledButton(
+                    if (canEdit && request.status == 'approved')
+                      FilledButton.icon(
                         onPressed: () => onCreateOrder(request.id),
-                        child: const Text('Create Order'),
+                        icon: const Icon(Icons.shopping_cart, size: 16),
+                        label: Text('action.create'.tr + ' ' + 'nav.orders'.tr),
                       ),
-                    ],
+                    if (request.status == 'ordered')
+                      Chip(
+                        label: const Text('Order placed'),
+                        backgroundColor: Colors.blue.withValues(alpha: 0.12),
+                        labelStyle: const TextStyle(color: Colors.blue, fontSize: 12),
+                        side: BorderSide.none,
+                      ),
+                    if (request.status == 'received')
+                      Chip(
+                        label: const Text('Delivered'),
+                        backgroundColor: const Color(0xFF4F46E5).withValues(alpha: 0.12),
+                        labelStyle: const TextStyle(color: Color(0xFF4F46E5), fontSize: 12),
+                        side: BorderSide.none,
+                      ),
+                    if (request.status == 'rejected')
+                      Chip(
+                        label: const Text('Rejected'),
+                        backgroundColor: Colors.red.withValues(alpha: 0.12),
+                        labelStyle: const TextStyle(color: Colors.red, fontSize: 12),
+                        side: BorderSide.none,
+                      ),
                   ],
                 ),
               ],
