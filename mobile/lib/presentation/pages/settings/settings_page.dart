@@ -4,6 +4,7 @@ import '../../../app/routes.dart';
 import '../../../config/api_config.dart';
 import '../../../data/services/account_service.dart';
 import '../../../data/services/session_controller.dart';
+import '../../../l10n/app_i18n.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -220,7 +221,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final user = SessionController.instance.currentUser;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
+      appBar: AppBar(title: Text('settings.title'.tr)),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -240,7 +241,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    user?.name ?? 'User',
+                    user?.name ?? 'label.you'.tr,
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   Text(
@@ -261,20 +262,51 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ),
           const SizedBox(height: 8),
+          // Language picker
+          Card(
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.language, size: 20),
+                      const SizedBox(width: 12),
+                      Text('settings.language'.tr,
+                          style: Theme.of(context).textTheme.titleSmall),
+                    ],
+                  ),
+                ),
+                RadioListTile<String>(
+                  title: Text('settings.languageEnglish'.tr),
+                  value: 'en',
+                  groupValue: AppI18n.instance.lang,
+                  onChanged: (v) => v != null ? AppI18n.instance.setLanguage(v) : null,
+                ),
+                RadioListTile<String>(
+                  title: Text('settings.languageSwahili'.tr),
+                  value: 'sw',
+                  groupValue: AppI18n.instance.lang,
+                  onChanged: (v) => v != null ? AppI18n.instance.setLanguage(v) : null,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
           Card(
             child: Column(
               children: [
                 ListTile(
                   leading: const Icon(Icons.edit_outlined),
-                  title: const Text('Edit Profile'),
-                  subtitle: const Text('Update your name'),
+                  title: Text('action.edit'.tr + ' ' + 'nav.profile'.tr),
+                  subtitle: Text('label.fullName'.tr),
                   onTap: _showEditProfileSheet,
                 ),
                 const Divider(height: 1),
                 ListTile(
                   leading: const Icon(Icons.lock_outline),
-                  title: const Text('Change Password'),
-                  subtitle: const Text('Update your login password'),
+                  title: Text('settings.changePassword'.tr),
+                  subtitle: Text('label.password'.tr),
                   onTap: _showChangePasswordSheet,
                 ),
                 const Divider(height: 1),
@@ -286,14 +318,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 const Divider(height: 1),
                 ListTile(
                   leading: const Icon(Icons.info_outline),
-                  title: const Text('App Version'),
+                  title: Text('settings.version'.tr),
                   subtitle: const Text('1.0.0+1'),
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.phone_android),
-                  title: const Text('Platform'),
-                  subtitle: const Text('Flutter Android'),
                 ),
               ],
             ),
@@ -307,7 +333,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   .pushNamedAndRemoveUntil(AppRoutes.login, (_) => false);
             },
             icon: const Icon(Icons.logout),
-            label: const Text('Sign Out'),
+            label: Text('action.logout'.tr),
           ),
         ],
       ),

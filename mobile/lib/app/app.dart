@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../config/app_theme.dart';
 import '../data/services/session_controller.dart';
+import '../l10n/app_i18n.dart';
 import 'routes.dart';
 
 class ProjectMilestoneApp extends StatelessWidget {
@@ -15,7 +16,7 @@ class ProjectMilestoneApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: sessionController,
+      animation: Listenable.merge([sessionController, AppI18n.instance]),
       builder: (context, _) {
         return MaterialApp(
           title: 'Project Milestone',

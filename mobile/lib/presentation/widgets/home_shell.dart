@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../app/routes.dart';
 import '../../config/app_theme.dart';
 import '../../data/services/session_controller.dart';
+import '../../l10n/app_i18n.dart';
 import '../pages/activities/activity_list_page.dart';
 import '../pages/audit/audit_logs_page.dart';
 import '../pages/calendar/calendar_page.dart';
@@ -38,23 +39,23 @@ class _HomeShellState extends State<HomeShell> {
     final isManager = role == 'manager';
 
     return [
-      const _NavItem('Dashboard', Icons.dashboard_outlined, Icons.dashboard),
-      const _NavItem('Projects', Icons.folder_outlined, Icons.folder),
-      const _NavItem('Milestones', Icons.flag_outlined, Icons.flag),
-      const _NavItem('Tasks', Icons.checklist_outlined, Icons.checklist),
-      const _NavItem('Expenses', Icons.receipt_long_outlined, Icons.receipt_long),
-      const _NavItem('Issues', Icons.bug_report_outlined, Icons.bug_report),
-      const _NavItem('Reports', Icons.bar_chart_outlined, Icons.bar_chart),
-      const _NavItem('Store', Icons.inventory_2_outlined, Icons.inventory_2),
-      const _NavItem('Calendar', Icons.calendar_month_outlined, Icons.calendar_month),
-      const _NavItem('Search', Icons.search_outlined, Icons.search),
-      const _NavItem('Time Tracking', Icons.timer_outlined, Icons.timer),
-      const _NavItem('Resources', Icons.build_outlined, Icons.build),
-      const _NavItem('Activities', Icons.timeline_outlined, Icons.timeline),
+      _NavItem('Dashboard', 'nav.dashboard'.tr, Icons.dashboard_outlined, Icons.dashboard),
+      _NavItem('Projects', 'nav.projects'.tr, Icons.folder_outlined, Icons.folder),
+      _NavItem('Milestones', 'nav.milestones'.tr, Icons.flag_outlined, Icons.flag),
+      _NavItem('Tasks', 'nav.tasks'.tr, Icons.checklist_outlined, Icons.checklist),
+      _NavItem('Expenses', 'nav.expenses'.tr, Icons.receipt_long_outlined, Icons.receipt_long),
+      _NavItem('Issues', 'nav.issues'.tr, Icons.bug_report_outlined, Icons.bug_report),
+      _NavItem('Reports', 'nav.reports'.tr, Icons.bar_chart_outlined, Icons.bar_chart),
+      _NavItem('Store', 'nav.store'.tr, Icons.inventory_2_outlined, Icons.inventory_2),
+      _NavItem('Calendar', 'nav.calendar'.tr, Icons.calendar_month_outlined, Icons.calendar_month),
+      _NavItem('Search', 'nav.search'.tr, Icons.search_outlined, Icons.search),
+      _NavItem('Time Tracking', 'nav.timeTracking'.tr, Icons.timer_outlined, Icons.timer),
+      _NavItem('Resources', 'nav.resources'.tr, Icons.build_outlined, Icons.build),
+      _NavItem('Activities', 'nav.activities'.tr, Icons.timeline_outlined, Icons.timeline),
       if (isAdmin || isManager)
-        const _NavItem('Users', Icons.people_outlined, Icons.people),
+        _NavItem('Users', 'nav.users'.tr, Icons.people_outlined, Icons.people),
       if (isAdmin)
-        const _NavItem('Audit Logs', Icons.receipt_outlined, Icons.receipt),
+        _NavItem('Audit Logs', 'nav.auditLogs'.tr, Icons.receipt_outlined, Icons.receipt),
     ];
   }
 
@@ -62,8 +63,8 @@ class _HomeShellState extends State<HomeShell> {
     final destinations = _destinations;
     if (index < 0 || index >= destinations.length) return const DashboardPage();
 
-    final label = destinations[index].label;
-    return switch (label) {
+    final id = destinations[index].id;
+    return switch (id) {
       'Dashboard' => const DashboardPage(),
       'Projects' => const ProjectListPage(),
       'Milestones' => const MilestoneListPage(),
@@ -157,9 +158,27 @@ class _HomeShellState extends State<HomeShell> {
           ),
         ),
         actions: [
+          // Quick language toggle
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.language, size: 22),
+            tooltip: 'settings.language'.tr,
+            onSelected: (v) => AppI18n.instance.setLanguage(v),
+            itemBuilder: (_) => [
+              CheckedPopupMenuItem(
+                value: 'en',
+                checked: AppI18n.instance.lang == 'en',
+                child: Text('settings.languageEnglish'.tr),
+              ),
+              CheckedPopupMenuItem(
+                value: 'sw',
+                checked: AppI18n.instance.lang == 'sw',
+                child: Text('settings.languageSwahili'.tr),
+              ),
+            ],
+          ),
           IconButton(
             icon: const Icon(Icons.notifications_outlined, size: 22),
-            tooltip: 'Notifications',
+            tooltip: 'nav.notifications'.tr,
             onPressed: () =>
                 Navigator.of(context).pushNamed(AppRoutes.notifications),
           ),
@@ -204,7 +223,7 @@ class _HomeShellState extends State<HomeShell> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    user?.name ?? 'User',
+                    user?.name ?? 'label.you'.tr,
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w700,
@@ -260,7 +279,7 @@ class _HomeShellState extends State<HomeShell> {
                   ),
                   _DrawerItem(
                     icon: Icons.notifications_outlined,
-                    label: 'Notifications',
+                    label: 'nav.notifications'.tr,
                     selected: false,
                     onTap: () {
                       Navigator.of(context).pop();
@@ -269,7 +288,7 @@ class _HomeShellState extends State<HomeShell> {
                   ),
                   _DrawerItem(
                     icon: Icons.settings_outlined,
-                    label: 'Settings',
+                    label: 'nav.settings'.tr,
                     selected: false,
                     onTap: () {
                       Navigator.of(context).pop();
@@ -282,15 +301,15 @@ class _HomeShellState extends State<HomeShell> {
             const Divider(height: 1, color: AppTheme.slate200),
             InkWell(
               onTap: _logout,
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 child: Row(
                   children: [
-                    Icon(Icons.logout_rounded, size: 20, color: AppTheme.red600),
-                    SizedBox(width: 12),
+                    const Icon(Icons.logout_rounded, size: 20, color: AppTheme.red600),
+                    const SizedBox(width: 12),
                     Text(
-                      'Logout',
-                      style: TextStyle(
+                      'action.logout'.tr,
+                      style: const TextStyle(
                         color: AppTheme.red600,
                         fontWeight: FontWeight.w600,
                         fontSize: 14,
@@ -336,9 +355,10 @@ class _HomeShellState extends State<HomeShell> {
 }
 
 class _NavItem {
-  const _NavItem(this.label, this.icon, this.selectedIcon);
+  const _NavItem(this.id, this.label, this.icon, this.selectedIcon);
 
-  final String label;
+  final String id; // stable identifier (English)
+  final String label; // localized display
   final IconData icon;
   final IconData selectedIcon;
 }
