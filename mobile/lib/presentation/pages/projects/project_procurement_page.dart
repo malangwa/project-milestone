@@ -1038,6 +1038,7 @@ class _ProjectProcurementPageState extends State<ProjectProcurementPage> {
             children: [
               _RequestsTab(
                 requests: _requests,
+                projectName: widget.projectName,
                 canApprove: _canApprove,
                 canEdit: _canEdit,
                 money: _money,
@@ -1062,6 +1063,7 @@ class _ProjectProcurementPageState extends State<ProjectProcurementPage> {
                 invoices: _invoices,
                 receipts: _receipts,
                 invoiceAttachments: _invoiceAttachments,
+                projectName: widget.projectName,
                 canApprove: _canApprove,
                 canEdit: _canEdit,
                 money: _money,
@@ -1152,6 +1154,7 @@ class TabBarViewFAB extends StatelessWidget {
 class _RequestsTab extends StatelessWidget {
   const _RequestsTab({
     required this.requests,
+    required this.projectName,
     required this.canApprove,
     required this.canEdit,
     required this.money,
@@ -1162,6 +1165,7 @@ class _RequestsTab extends StatelessWidget {
   });
 
   final List<MaterialRequestModel> requests;
+  final String projectName;
   final bool canApprove;
   final bool canEdit;
   final String Function(num) money;
@@ -1252,7 +1256,10 @@ class _RequestsTab extends StatelessWidget {
                   runSpacing: 8,
                   children: [
                     OutlinedButton.icon(
-                      onPressed: () => ShareHelper.shareMaterialRequest(request),
+                      onPressed: () => ShareHelper.shareMaterialRequest(
+                        request,
+                        projectName: projectName,
+                      ),
                       icon: const Icon(Icons.share, size: 16),
                       label: Text('action.share'.tr),
                     ),
@@ -1310,6 +1317,7 @@ class _OrdersTab extends StatelessWidget {
     required this.invoices,
     required this.receipts,
     required this.invoiceAttachments,
+    required this.projectName,
     required this.canApprove,
     required this.canEdit,
     required this.money,
@@ -1330,6 +1338,7 @@ class _OrdersTab extends StatelessWidget {
   final Map<String, List<SupplierInvoiceModel>> invoices;
   final Map<String, List<GoodsReceiptModel>> receipts;
   final Map<String, List<AttachmentModel>> invoiceAttachments;
+  final String projectName;
   final bool canApprove;
   final bool canEdit;
   final String Function(num) money;
@@ -1421,6 +1430,14 @@ class _OrdersTab extends StatelessWidget {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
+                    OutlinedButton.icon(
+                      onPressed: () => ShareHelper.sharePurchaseOrder(
+                        order,
+                        projectName: projectName,
+                      ),
+                      icon: const Icon(Icons.share, size: 16),
+                      label: const Text('Share'),
+                    ),
                     if (canApprove && order.status == 'approved')
                       OutlinedButton(
                         onPressed: () => onSendOrder(order.id),
@@ -1497,6 +1514,15 @@ class _OrdersTab extends StatelessWidget {
                             spacing: 8,
                             runSpacing: 8,
                             children: [
+                              OutlinedButton.icon(
+                                onPressed: () => ShareHelper.shareSupplierInvoice(
+                                  invoice,
+                                  order: order,
+                                  projectName: projectName,
+                                ),
+                                icon: const Icon(Icons.share, size: 16),
+                                label: const Text('Share'),
+                              ),
                               OutlinedButton(
                                 onPressed: () => onUploadProof(invoice.id),
                                 child: const Text('Payment Proof'),
