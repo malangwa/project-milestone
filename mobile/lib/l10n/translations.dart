@@ -171,7 +171,7 @@ const Map<String, String> _en = {
   'material.purpose': 'Purpose',
   'material.requestedBy': 'Requested by',
   'material.items': 'Items',
-  'material.estimatedCost': 'Estimated Cost',
+  'material.unitPrice': 'Unit Price',
   'material.cannotApproveOwn': 'You cannot approve your own request',
 
   // Users
@@ -390,7 +390,7 @@ const Map<String, String> _sw = {
   'material.purpose': 'Madhumuni',
   'material.requestedBy': 'Aliyeomba',
   'material.items': 'Vifaa',
-  'material.estimatedCost': 'Gharama Inayokadiriwa',
+  'material.unitPrice': 'Bei ya Kitengo',
   'material.cannotApproveOwn': 'Huwezi kuidhinisha ombi lako mwenyewe',
 
   // Users

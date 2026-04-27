@@ -21,7 +21,7 @@ export class CreateMaterialRequestItemDto {
   @Type(() => Number)
   @IsNumber()
   @Min(0)
-  estimatedCost: number;
+  unitPrice: number;
 
   @ApiProperty({ required: false })
   @IsString()

@@ -30,8 +30,8 @@ export class MaterialRequestItem {
   @Column({ type: 'varchar' })
   unit: string;
 
-  @Column({ name: 'estimated_cost', type: 'numeric', precision: 15, scale: 2 })
-  estimatedCost: number;
+  @Column({ name: 'unit_price', type: 'numeric', precision: 15, scale: 2 })
+  unitPrice: number;
 
   @Column({ type: 'text', nullable: true })
   notes: string | null;

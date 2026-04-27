@@ -3,7 +3,7 @@ class MaterialRequestItemModel {
     required this.name,
     required this.quantity,
     required this.unit,
-    required this.estimatedCost,
+    required this.unitPrice,
     this.id,
     this.materialRequestId,
     this.notes,
@@ -14,8 +14,10 @@ class MaterialRequestItemModel {
   final String name;
   final double quantity;
   final String unit;
-  final double estimatedCost;
+  final double unitPrice;
   final String? notes;
+
+  double get lineTotal => quantity * unitPrice;
 
   factory MaterialRequestItemModel.fromJson(Map<String, dynamic> json) {
     return MaterialRequestItemModel(
@@ -24,8 +26,7 @@ class MaterialRequestItemModel {
       name: (json['name'] ?? '').toString(),
       quantity: double.tryParse((json['quantity'] ?? 0).toString()) ?? 0,
       unit: (json['unit'] ?? '').toString(),
-      estimatedCost:
-          double.tryParse((json['estimatedCost'] ?? 0).toString()) ?? 0,
+      unitPrice: double.tryParse((json['unitPrice'] ?? json['estimatedCost'] ?? 0).toString()) ?? 0,
       notes: json['notes']?.toString(),
     );
   }

@@ -74,12 +74,12 @@ export class MaterialRequestsService {
       name: item.name.trim(),
       quantity: Number(item.quantity),
       unit: item.unit.trim(),
-      estimatedCost: Number(item.estimatedCost),
+      unitPrice: Number(item.unitPrice),
       notes: item.notes?.trim() || null,
     }));
 
     const requestedAmount = items.reduce(
-      (sum, item) => sum + Number(item.estimatedCost),
+      (sum, item) => sum + Number(item.quantity) * Number(item.unitPrice),
       0,
     );
 

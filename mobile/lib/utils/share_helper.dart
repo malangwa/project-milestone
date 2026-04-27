@@ -153,14 +153,15 @@ class ShareHelper {
               border: pw.TableBorder.all(color: PdfColor.fromHex('e5e7eb')),
               columnWidths: {
                 0: const pw.FlexColumnWidth(3),
-                1: const pw.FlexColumnWidth(1.5),
-                2: const pw.FlexColumnWidth(1.5),
+                1: const pw.FlexColumnWidth(1.2),
+                2: const pw.FlexColumnWidth(1),
                 3: const pw.FlexColumnWidth(1.5),
+                4: const pw.FlexColumnWidth(1.5),
               },
               children: [
                 pw.TableRow(
                   decoration: pw.BoxDecoration(color: PdfColor.fromHex('f3f4f6')),
-                  children: ['Item', 'Qty', 'Unit', 'Est. Cost']
+                  children: ['Item', 'Qty', 'Unit', 'Unit Price', 'Total']
                       .map(
                         (h) => pw.Padding(
                           padding: const pw.EdgeInsets.all(6),
@@ -182,7 +183,8 @@ class ShareHelper {
                       _cell(item.name),
                       _cell('${item.quantity}'),
                       _cell(item.unit),
-                      _cell(item.estimatedCost > 0 ? _formatCurrency(item.estimatedCost) : '-'),
+                      _cell(_formatCurrency(item.unitPrice)),
+                      _cell(_formatCurrency(item.lineTotal)),
                     ],
                   ),
                 ),

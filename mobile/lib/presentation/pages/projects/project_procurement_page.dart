@@ -325,15 +325,15 @@ class _ProjectProcurementPageState extends State<ProjectProcurementPage> {
                             if (notesCtrl.text.trim().isNotEmpty)
                               'notes': notesCtrl.text.trim(),
                             'items': items
-                                .map((item) => {
+                                .map((_MaterialItemDraft item) => {
                                       'name': item.nameCtrl.text.trim(),
                                       'quantity': double.tryParse(
                                             item.quantityCtrl.text.trim(),
                                           ) ??
                                           0,
                                       'unit': item.unitCtrl.text.trim(),
-                                      'estimatedCost': double.tryParse(
-                                            item.costCtrl.text.trim(),
+                                      'unitPrice': double.tryParse(
+                                            item.unitPriceCtrl.text.trim(),
                                           ) ??
                                           0,
                                       if (item.notesCtrl.text.trim().isNotEmpty)
@@ -399,9 +399,7 @@ class _ProjectProcurementPageState extends State<ProjectProcurementPage> {
               name: item.name,
               quantity: item.quantity.toString(),
               unit: item.unit,
-              unitPrice: item.quantity == 0
-                  ? item.estimatedCost.toString()
-                  : (item.estimatedCost / item.quantity).toStringAsFixed(2),
+              unitPrice: item.unitPrice.toString(),
               description: item.notes ?? '',
               notes: item.notes ?? '',
             ),
@@ -1242,10 +1240,10 @@ class _RequestsTab extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            '${item.name} • ${item.quantity} ${item.unit}',
+                            '${item.name} • ${item.quantity} ${item.unit} @ ${money(item.unitPrice)}/${item.unit}',
                           ),
                         ),
-                        Text(money(item.estimatedCost)),
+                        Text(money(item.lineTotal)),
                       ],
                     ),
                   ),
@@ -1651,25 +1649,25 @@ class _MaterialItemDraft {
     String name = '',
     String quantity = '',
     String unit = '',
-    String estimatedCost = '',
+    String unitPrice = '',
     String notes = '',
   })  : nameCtrl = TextEditingController(text: name),
         quantityCtrl = TextEditingController(text: quantity),
         unitCtrl = TextEditingController(text: unit),
-        costCtrl = TextEditingController(text: estimatedCost),
+        unitPriceCtrl = TextEditingController(text: unitPrice),
         notesCtrl = TextEditingController(text: notes);
 
   final TextEditingController nameCtrl;
   final TextEditingController quantityCtrl;
   final TextEditingController unitCtrl;
-  final TextEditingController costCtrl;
+  final TextEditingController unitPriceCtrl;
   final TextEditingController notesCtrl;
 
   void dispose() {
     nameCtrl.dispose();
     quantityCtrl.dispose();
     unitCtrl.dispose();
-    costCtrl.dispose();
+    unitPriceCtrl.dispose();
     notesCtrl.dispose();
   }
 }
@@ -1749,11 +1747,11 @@ class _MaterialDraftEditor extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           TextFormField(
-            controller: item.costCtrl,
+            controller: item.unitPriceCtrl,
             keyboardType:
                 const TextInputType.numberWithOptions(decimal: true),
             decoration: const InputDecoration(
-              labelText: 'Estimated cost',
+              labelText: 'Unit price',
               border: OutlineInputBorder(),
             ),
             validator: (value) =>
