@@ -5,6 +5,7 @@ import '../../../app/routes.dart';
 import '../../../config/app_theme.dart';
 import '../../../data/models/project_model.dart';
 import '../../../data/services/project_service.dart';
+import '../../../data/services/session_controller.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/loading_indicator.dart';
 
@@ -31,6 +32,11 @@ class _ProjectListPageState extends State<ProjectListPage> {
     } catch (_) {
       return [];
     }
+  }
+
+  bool _canCreateProject() {
+    final role = SessionController.instance.currentUser?.role;
+    return role == 'admin' || role == 'manager';
   }
 
   Future<void> _showCreateProjectSheet() async {
@@ -305,16 +311,18 @@ class _ProjectListPageState extends State<ProjectListPage> {
         ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showCreateProjectSheet,
-        tooltip: 'New project',
-        backgroundColor: AppTheme.primary,
-        foregroundColor: Colors.white,
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('New', style: TextStyle(fontWeight: FontWeight.w600)),
-      ),
+      floatingActionButton: _canCreateProject()
+          ? FloatingActionButton.extended(
+              onPressed: _showCreateProjectSheet,
+              tooltip: 'New project',
+              backgroundColor: AppTheme.primary,
+              foregroundColor: Colors.white,
+              elevation: 4,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('New', style: TextStyle(fontWeight: FontWeight.w600)),
+            )
+          : null,
     );
   }
 }
