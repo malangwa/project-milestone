@@ -58,12 +58,39 @@ export class ProjectsService {
       return this.projectsRepo.find({ order: { createdAt: 'DESC' } });
     }
 
+    // Projects owned by the user or by users in their created-by tree
     const accessibleUserIds = await this.getAccessibleUserIds(userId);
 
-    return this.projectsRepo.find({
+    // Plus projects where the user is a member
+    const memberships = await this.projectMembersRepo.find({
+      where: { userId },
+      select: ['projectId'],
+    });
+    const memberProjectIds = memberships.map((m) => m.projectId);
+
+    const projectIds = new Set<string>();
+    const ownedProjects = await this.projectsRepo.find({
       where: { ownerId: In(accessibleUserIds) },
       order: { createdAt: 'DESC' },
     });
+    ownedProjects.forEach((p) => projectIds.add(p.id));
+
+    const memberProjects = memberProjectIds.length > 0
+      ? await this.projectsRepo.find({
+          where: { id: In(memberProjectIds) },
+        })
+      : [];
+
+    const all = [...ownedProjects];
+    memberProjects.forEach((p) => {
+      if (!projectIds.has(p.id)) {
+        projectIds.add(p.id);
+        all.push(p);
+      }
+    });
+
+    all.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    return all;
   }
 
   private async getProjectOrThrow(id: string): Promise<Project> {
@@ -86,19 +113,32 @@ export class ProjectsService {
       return true;
     }
 
+    // Also allow if user is a member of the project
+    const membership = await this.projectMembersRepo.findOne({
+      where: { projectId: project.id, userId },
+    });
+    if (membership) {
+      return true;
+    }
+
     return false;
   }
 
-  private canManageProject(
+  private async canManageProject(
     project: Project,
     userId: string,
     role: UserRole,
-  ): boolean {
-    return (
-      role === UserRole.ADMIN ||
-      role === UserRole.MANAGER ||
-      project.ownerId === userId
-    );
+  ): Promise<boolean> {
+    if (role === UserRole.ADMIN) return true;
+    if (project.ownerId === userId) return true;
+
+    // A project-level MANAGER member can also manage
+    const membership = await this.projectMembersRepo.findOne({
+      where: { projectId: project.id, userId },
+    });
+    if (membership?.role === ProjectMemberRole.MANAGER) return true;
+
+    return false;
   }
 
   async findOne(id: string, userId: string, role: UserRole): Promise<Project> {
@@ -150,7 +190,7 @@ export class ProjectsService {
     role: UserRole,
   ): Promise<ProjectMember> {
     const project = await this.findOne(projectId, userId, role);
-    if (!this.canManageProject(project, userId, role)) {
+    if (!(await this.canManageProject(project, userId, role))) {
       throw new ForbiddenException('Not authorized to manage project members');
     }
     const memberUser = await this.usersRepo.findOne({
@@ -184,7 +224,7 @@ export class ProjectsService {
     role: UserRole,
   ): Promise<void> {
     const project = await this.findOne(projectId, userId, role);
-    if (!this.canManageProject(project, userId, role)) {
+    if (!(await this.canManageProject(project, userId, role))) {
       throw new ForbiddenException('Not authorized to manage project members');
     }
     if (memberUserId === project.ownerId) {
