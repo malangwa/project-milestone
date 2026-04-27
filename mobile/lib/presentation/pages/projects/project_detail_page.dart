@@ -15,6 +15,7 @@ import '../../../data/services/expense_service.dart';
 import '../../../data/services/milestone_service.dart';
 import '../../../data/services/project_service.dart';
 import '../../../data/services/report_service.dart';
+import '../../../data/services/session_controller.dart';
 import '../../../data/services/task_service.dart';
 import 'project_procurement_page.dart';
 import '../../widgets/loading_indicator.dart';
@@ -74,6 +75,119 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
       expenses: results[4] as List<ExpenseModel>,
       milestones: results[5] as List<MilestoneModel>,
     );
+  }
+
+  bool _canManageMembers() {
+    final role = SessionController.instance.currentUser?.role;
+    return role == 'admin' || role == 'manager';
+  }
+
+  Future<void> _showAddMemberDialog() async {
+    final emailCtl = TextEditingController();
+    String role = 'engineer';
+    const roles = ['engineer', 'viewer', 'client', 'subcontractor', 'manager'];
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Add Team Member'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: emailCtl,
+                decoration: const InputDecoration(
+                  labelText: 'User email *',
+                  hintText: 'user@example.com',
+                ),
+                keyboardType: TextInputType.emailAddress,
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: role,
+                decoration: const InputDecoration(labelText: 'Project role'),
+                items: roles
+                    .map((r) => DropdownMenuItem(value: r, child: Text(r)))
+                    .toList(),
+                onChanged: (v) => setDialogState(() => role = v ?? 'engineer'),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'User must already have an account. Create one in the Users page first.',
+                style: TextStyle(fontSize: 11, color: Colors.grey),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Add'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed != true) return;
+    if (emailCtl.text.trim().isEmpty) return;
+
+    try {
+      await ProjectService.instance.addMember(
+        widget.projectId,
+        emailCtl.text.trim(),
+        role: role,
+      );
+      if (!mounted) return;
+      setState(() => _future = _load());
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Member added')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to add: $e')),
+      );
+    }
+  }
+
+  Future<void> _removeMember(ProjectMemberModel member) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove member?'),
+        content: Text('Remove ${member.name ?? member.email ?? 'this user'} from the project?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await ProjectService.instance.removeMember(widget.projectId, member.userId);
+      if (!mounted) return;
+      setState(() => _future = _load());
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Member removed')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed: $e')),
+      );
+    }
   }
 
   void _showEditProjectSheet(ProjectModel project) {
@@ -318,6 +432,13 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
                 // Team members
                 _SectionCard(
                   title: 'Team Members',
+                  trailing: _canManageMembers()
+                      ? TextButton.icon(
+                          onPressed: _showAddMemberDialog,
+                          icon: const Icon(Icons.person_add, size: 18),
+                          label: const Text('Add'),
+                        )
+                      : null,
                   children: data.members.isEmpty
                       ? [const Text('No members added yet.')]
                       : data.members.map(
@@ -337,12 +458,24 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
                                 member.name ?? member.email ?? 'User'),
                             subtitle:
                                 Text(member.email ?? member.role),
-                            trailing: Chip(
-                              label: Text(member.role),
-                              visualDensity: VisualDensity.compact,
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Chip(
+                                  label: Text(member.role),
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                                if (_canManageMembers())
+                                  IconButton(
+                                    icon: const Icon(Icons.close, size: 18),
+                                    color: Colors.red.shade400,
+                                    tooltip: 'Remove member',
+                                    onPressed: () => _removeMember(member),
+                                  ),
+                              ],
                             ),
                           ),
-                        ),
+                        ).toList(),
                 ),
                 const SizedBox(height: 16),
 
@@ -1343,10 +1476,15 @@ class _InfoChip extends StatelessWidget {
 }
 
 class _SectionCard extends StatelessWidget {
-  const _SectionCard({required this.title, required this.children});
+  const _SectionCard({
+    required this.title,
+    required this.children,
+    this.trailing,
+  });
 
   final String title;
   final Iterable<Widget> children;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -1356,7 +1494,14 @@ class _SectionCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(title, style: Theme.of(context).textTheme.titleMedium),
+                ),
+                if (trailing != null) trailing!,
+              ],
+            ),
             const SizedBox(height: 12),
             ...children,
           ],
