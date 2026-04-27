@@ -22,7 +22,9 @@
     "migration:create": "npm run typeorm -- migration:create src/database/migrations/ManualMigration",
     "migration:generate": "npm run typeorm -- migration:generate src/database/migrations/AutoMigration",
     "migration:run": "npm run typeorm -- migration:run",
-    "migration:revert": "npm run typeorm -- migration:revert"
+    "migration:revert": "npm run typeorm -- migration:revert",
+    "script:promote-owners": "ts-node -r tsconfig-paths/register src/database/scripts/promote-self-signups-to-owner.ts",
+    "script:promote-owners:prod": "node dist/database/scripts/promote-self-signups-to-owner.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1019.0",
