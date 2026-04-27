@@ -8,6 +8,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  ForbiddenException,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { UsersService } from './users.service';
@@ -37,9 +38,19 @@ export class UsersController {
 
   @Post()
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Admin: create a new user' })
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @ApiOperation({ summary: 'Admin/Manager: create a new user' })
   create(@Body() dto: CreateUserDto, @CurrentUser() user: User) {
+    // Managers cannot create admins or other managers
+    if (
+      user.role === UserRole.MANAGER &&
+      dto.role &&
+      [UserRole.ADMIN, UserRole.MANAGER].includes(dto.role)
+    ) {
+      throw new ForbiddenException(
+        'Managers cannot create admin or manager accounts',
+      );
+    }
     return this.usersService.create(dto, user.id);
   }
 
@@ -63,9 +74,29 @@ export class UsersController {
 
   @Patch(':id')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Admin: update any user' })
-  update(@Param('id') id: string, @Body() dto: UpdateUserDto) {
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @ApiOperation({ summary: 'Admin/Manager: update a user' })
+  async update(
+    @Param('id') id: string,
+    @Body() dto: UpdateUserDto,
+    @CurrentUser() user: User,
+  ) {
+    if (user.role === UserRole.MANAGER) {
+      const target = await this.usersService.findById(id);
+      // Managers can only edit users they created
+      if (target.createdById !== user.id) {
+        throw new ForbiddenException('You can only edit users you created');
+      }
+      // Managers cannot promote anyone to admin or manager
+      if (
+        dto.role &&
+        [UserRole.ADMIN, UserRole.MANAGER].includes(dto.role)
+      ) {
+        throw new ForbiddenException(
+          'Managers cannot assign admin or manager roles',
+        );
+      }
+    }
     return this.usersService.update(id, dto);
   }
 }

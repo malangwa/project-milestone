@@ -51,7 +51,8 @@ export class UsersService {
   }
 
   async findAll(requesterId: string, role: UserRole): Promise<User[]> {
-    if (role === UserRole.ADMIN) {
+    // Admins and Managers see themselves + users they created
+    if (role === UserRole.ADMIN || role === UserRole.MANAGER) {
       return this.usersRepo.find({
         where: [{ createdById: requesterId }, { id: requesterId }],
         order: { createdAt: 'ASC' },

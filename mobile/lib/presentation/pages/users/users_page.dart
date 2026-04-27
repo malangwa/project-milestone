@@ -17,6 +17,7 @@ class _UsersPageState extends State<UsersPage> {
   late Future<List<UserModel>> _future;
 
   static const _roles = ['admin', 'manager', 'engineer', 'viewer', 'client', 'subcontractor'];
+  static const _managerRoles = ['engineer', 'viewer', 'client', 'subcontractor'];
 
   @override
   void initState() {
@@ -45,6 +46,9 @@ class _UsersPageState extends State<UsersPage> {
   }
 
   Future<void> _showCreateDialog() async {
+    final myRole = SessionController.instance.currentUser?.role ?? '';
+    final isAdmin = myRole == 'admin';
+    final availableRoles = isAdmin ? _roles : _managerRoles;
     final nameCtl = TextEditingController();
     final emailCtl = TextEditingController();
     final passCtl = TextEditingController();
@@ -68,7 +72,7 @@ class _UsersPageState extends State<UsersPage> {
                 DropdownButtonFormField<String>(
                   value: role,
                   decoration: const InputDecoration(labelText: 'Role'),
-                  items: _roles.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
+                  items: availableRoles.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
                   onChanged: (v) => setDialogState(() => role = v ?? 'engineer'),
                 ),
               ],
@@ -103,8 +107,23 @@ class _UsersPageState extends State<UsersPage> {
     }
   }
 
+  bool _canEdit(UserModel target, String? myId, bool isAdmin, bool isManager) {
+    if (target.id == myId) return false;
+    if (isAdmin) return true;
+    if (isManager) {
+      // Backend already filters list to only own-created users + self.
+      // Don't allow editing admins/managers.
+      return target.role != 'admin' && target.role != 'manager';
+    }
+    return false;
+  }
+
   Future<void> _editRole(UserModel user) async {
+    final myRole = SessionController.instance.currentUser?.role ?? '';
+    final isAdmin = myRole == 'admin';
+    final availableRoles = isAdmin ? _roles : _managerRoles;
     String role = user.role ?? 'viewer';
+    if (!availableRoles.contains(role)) role = availableRoles.first;
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -114,7 +133,7 @@ class _UsersPageState extends State<UsersPage> {
           content: DropdownButtonFormField<String>(
             value: role,
             decoration: const InputDecoration(labelText: 'Role'),
-            items: _roles.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
+            items: availableRoles.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
             onChanged: (v) => setDialogState(() => role = v ?? role),
           ),
           actions: [
@@ -141,7 +160,9 @@ class _UsersPageState extends State<UsersPage> {
     final me = SessionController.instance.currentUser;
     final myRole = me?.role ?? '';
     final isAdmin = myRole == 'admin';
-    final canView = isAdmin || myRole == 'manager';
+    final isManager = myRole == 'manager';
+    final canView = isAdmin || isManager;
+    final canManage = isAdmin || isManager;
 
     if (!canView) {
       return const EmptyState(
@@ -160,7 +181,7 @@ class _UsersPageState extends State<UsersPage> {
 
         return Column(
           children: [
-            if (isAdmin)
+            if (canManage)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                 child: Row(
@@ -249,7 +270,7 @@ class _UsersPageState extends State<UsersPage> {
                                   ),
                                 ],
                               ),
-                              trailing: isAdmin
+                              trailing: _canEdit(u, me?.id, isAdmin, isManager)
                                   ? IconButton(icon: const Icon(Icons.edit_outlined, size: 20), onPressed: () => _editRole(u))
                                   : null,
                             ),
