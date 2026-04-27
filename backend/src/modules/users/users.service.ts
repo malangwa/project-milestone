@@ -22,8 +22,14 @@ export class UsersService {
     });
     if (exists) throw new ConflictException('Email already in use');
     const passwordHash = await bcrypt.hash(dto.password, 10);
+
+    // Self-registration (no createdBy) defaults to MANAGER (owner)
+    // Admin-created users keep provided role or default to ENGINEER
+    const role = dto.role ?? (createdById ? UserRole.ENGINEER : UserRole.MANAGER);
+
     const user = this.usersRepo.create({
       ...dto,
+      role,
       passwordHash,
       createdById: createdById ?? null,
     });
